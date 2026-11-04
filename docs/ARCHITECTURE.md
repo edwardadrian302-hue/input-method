@@ -1,6 +1,6 @@
 # 实现说明
 
-浏览器通过 TSF 调用 `JianPin.dll`；DLL 在编辑会话中更新 Windows composition 和候选窗口。通过当前用户专属的本地命名管道，将双拼按键交给 `JianPinBroker.exe`；所有窗口的 Rime 会话由单个进程管理，避免多进程共享用户数据库。
+浏览器通过 TSF 调用 `JianPin.dll`；DLL 在编辑会话中更新 Windows composition 和候选窗口。通过当前用户专属的本地命名管道，将全拼按键交给 `JianPinBroker.exe`；所有窗口的 Rime 会话由单个进程管理，避免多进程共享用户数据库。
 
 进程间消息固定大小，并限制响应时间。管道 ACL 限于当前用户 SID，拒绝远程客户端；会话 ID 使用服务器读取到的实际客户端 PID 作为命名空间。转换失败不把键盘永久锁住。引擎启动、词库编译都不在浏览器线程执行。
 

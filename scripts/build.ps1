@@ -19,6 +19,7 @@ Compile @('src/settings.cpp') 'dist/JianPinSettings.exe' @('-mwindows')
 Compile @('src/tsf.cpp','src/tsf.def') 'dist/JianPin.dll' @('-shared','-Wl,--kill-at')
 Compile @('src/engine.cpp','tests/engine_test.cpp') 'dist/EngineTest.exe'
 Compile @('tests/tsf_test.cpp') 'dist/TsfTest.exe'
+Compile @('tests/candidate_preview.cpp') 'build/CandidatePreview.exe'
 Copy-Item '.tools/rime/dist/lib/rime.dll' 'dist/rime.dll' -Force
 Copy-Item data dist -Recurse -Force
 Copy-Item licenses dist -Recurse -Force

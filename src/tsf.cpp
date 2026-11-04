@@ -1,4 +1,5 @@
 #include "common.hpp"
+#include "candidate.hpp"
 #include <msctf.h>
 #include "tsf_compat.hpp"
 #include <inputscope.h>
@@ -30,7 +31,7 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
   ITfThreadMgr* manager_=nullptr; TfClientId client_=TF_CLIENTID_NULL; DWORD sink_=TF_INVALID_COOKIE;
   ITfComposition* composition_=nullptr; ITfContext* composingContext_=nullptr;
   DWORD editSink_=TF_INVALID_COOKIE;
-  HWND popup_=nullptr; HFONT font_=nullptr; Response view_;
+  HWND popup_=nullptr; CandidatePanel panel_; Response view_;
   bool english_=false,shiftOnly_=false; uint32_t id_=ids++;
   ULONGLONG lastLaunch_=0;
   friend class Edit;
@@ -45,27 +46,17 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
     if(msg==WM_NCCREATE) { self=static_cast<Service*>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams); SetWindowLongPtrW(hwnd,GWLP_USERDATA,(LONG_PTR)self); }
     if(msg==WM_MOUSEACTIVATE) return MA_NOACTIVATE;
     if(msg==WM_PAINT && self) {
-      PAINTSTRUCT ps; HDC dc=BeginPaint(hwnd,&ps); RECT rect; GetClientRect(hwnd,&rect);
-      HBRUSH bg=CreateSolidBrush(RGB(250,250,250)); FillRect(dc,&rect,bg); DeleteObject(bg);
-      auto old=SelectObject(dc,self->font_); SetBkMode(dc,TRANSPARENT); SetTextColor(dc,RGB(45,45,45));
-      int row=(rect.bottom-16)/(self->view_.count+1);
-      TextOutW(dc,12,8,self->view_.preedit,(int)wcslen(self->view_.preedit));
-      for(int i=0;i<self->view_.count;++i) {
-        RECT r={6,8+(i+1)*row,rect.right-6,8+(i+2)*row};
-        if(i==self->view_.highlight) { HBRUSH b=CreateSolidBrush(RGB(224,236,255)); FillRect(dc,&r,b); DeleteObject(b); }
-        std::wstring line=std::to_wstring(i+1)+L"  "+self->view_.candidates[i];
-        TextOutW(dc,12,r.top,line.c_str(),(int)line.size());
-      }
-      SelectObject(dc,old); EndPaint(hwnd,&ps); return 0;
+      PAINTSTRUCT ps;HDC dc=BeginPaint(hwnd,&ps);self->panel_.paint(dc,self->view_);EndPaint(hwnd,&ps);return 0;
     }
+    if(msg==WM_ERASEBKGND)return 1;
     return DefWindowProcW(hwnd,msg,wp,lp);
   }
   void show(ITfContext* ctx,TfEditCookie cookie) {
     if(!*view_.preedit) { if(popup_) ShowWindow(popup_,SW_HIDE); return; }
     if(!popup_) {
-      WNDCLASSW wc={}; wc.lpfnWndProc=WindowProc; wc.hInstance=instance; wc.lpszClassName=L"JianPin.Candidate.v1";
+      WNDCLASSW wc={}; wc.style=CS_DROPSHADOW; wc.lpfnWndProc=WindowProc; wc.hInstance=instance; wc.lpszClassName=L"JianPin.Candidate.v1";
       RegisterClassW(&wc);
-      popup_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,wc.lpszClassName,L"简拼",WS_POPUP|WS_BORDER,0,0,1,1,nullptr,nullptr,instance,this);
+      popup_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,wc.lpszClassName,L"简拼",WS_POPUP,0,0,1,1,nullptr,nullptr,instance,this);
     }
     ITfContextView* cv=nullptr; RECT anchor={}; BOOL clipped=FALSE; bool located=false;
     if(SUCCEEDED(ctx->GetActiveView(&cv))) {
@@ -77,12 +68,9 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
     MONITORINFO mi={sizeof(mi)}; HMONITOR mon=MonitorFromRect(&anchor,MONITOR_DEFAULTTONEAREST); GetMonitorInfoW(mon,&mi);
     UINT dpi=96; HMODULE shcore=LoadLibraryW(L"shcore.dll");
     if(shcore) { auto get=(HRESULT(WINAPI*)(HMONITOR,int,UINT*,UINT*))GetProcAddress(shcore,"GetDpiForMonitor"); UINT y=96; if(get)get(mon,0,&dpi,&y); FreeLibrary(shcore); }
-    if(font_)DeleteObject(font_); font_=CreateFontW(-MulDiv(view_.font,dpi,72),0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Microsoft YaHei UI");
-    HDC dc=GetDC(popup_); auto old=SelectObject(dc,font_); SIZE sz={}; int width=160,row=MulDiv(view_.font,dpi,72)+10;
-    GetTextExtentPoint32W(dc,view_.preedit,(int)wcslen(view_.preedit),&sz); width=std::max(width,(int)sz.cx+28);
-    for(int i=0;i<view_.count;++i) { std::wstring s=L"9  "+std::wstring(view_.candidates[i]); GetTextExtentPoint32W(dc,s.c_str(),(int)s.size(),&sz); width=std::max(width,(int)sz.cx+28); }
-    SelectObject(dc,old); ReleaseDC(popup_,dc);
-    width=std::min(width,(int)(mi.rcWork.right-mi.rcWork.left)); int height=row*(view_.count+1)+16;
+    HDC dc=GetDC(popup_);panel_.layout(dc,view_,dpi,mi.rcWork.right-mi.rcWork.left,mi.rcWork.bottom-mi.rcWork.top);ReleaseDC(popup_,dc);
+    int width=panel_.width,height=panel_.height;
+    SetWindowRgn(popup_,CreateRoundRectRgn(0,0,width+1,height+1,panel_.px(16),panel_.px(16)),FALSE);
     int x=std::clamp((int)anchor.left,(int)mi.rcWork.left,(int)mi.rcWork.right-width);
     int y=anchor.bottom; if(y+height>mi.rcWork.bottom)y=anchor.top-height; y=std::max(y,(int)mi.rcWork.top);
     SetWindowPos(popup_,HWND_TOPMOST,x,y,width,height,SWP_NOACTIVATE|SWP_SHOWWINDOW); InvalidateRect(popup_,nullptr,TRUE);
@@ -167,7 +155,7 @@ public:
     ITfSource* source=nullptr;if(SUCCEEDED(manager_->QueryInterface(IID_ITfSource,(void**)&source))){if(sink_!=TF_INVALID_COOKIE)source->UnadviseSink(sink_);source->Release();}
     manager_->Release();manager_=nullptr;client_=TF_CLIENTID_NULL;sink_=TF_INVALID_COOKIE;
     Request q;q.op=Op::Destroy;q.client=id_;Response r;exchange(q,r);
-    if(popup_){DestroyWindow(popup_);popup_=nullptr;}if(font_){DeleteObject(font_);font_=nullptr;}return S_OK;
+    if(popup_){DestroyWindow(popup_);popup_=nullptr;}return S_OK;
   }
   HRESULT STDMETHODCALLTYPE OnSetFocus(BOOL foreground) override{if(!foreground)cancel();return S_OK;}
   HRESULT STDMETHODCALLTYPE OnTestKeyDown(ITfContext* ctx,WPARAM vk,LPARAM lp,BOOL* eaten) override {
@@ -283,7 +271,7 @@ extern "C" HRESULT __stdcall DllRegisterServer(){
   if(code!=ERROR_SUCCESS){if(SUCCEEDED(init))CoUninitialize();return HRESULT_FROM_WIN32(code);}
   RegSetValueExW(key,nullptr,0,REG_SZ,(BYTE*)path,(DWORD)((wcslen(path)+1)*2));RegSetValueExW(key,L"ThreadingModel",0,REG_SZ,(const BYTE*)L"Apartment",20);RegCloseKey(key);
   ITfInputProcessorProfiles* p=nullptr;HRESULT hr=CoCreateInstance(CLSID_TF_InputProcessorProfiles,nullptr,CLSCTX_INPROC_SERVER,IID_ITfInputProcessorProfiles,(void**)&p);
-  if(SUCCEEDED(hr)){hr=p->Register(CLSID_JianPin);if(SUCCEEDED(hr)){const wchar_t* name=L"简拼 · 离线双拼";hr=p->AddLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,name,(ULONG)wcslen(name),path,(ULONG)wcslen(path),0);}if(SUCCEEDED(hr))hr=p->EnableLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,TRUE);p->Release();}
+  if(SUCCEEDED(hr)){hr=p->Register(CLSID_JianPin);if(SUCCEEDED(hr)){const wchar_t* name=L"简拼 · 离线拼音";hr=p->AddLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,name,(ULONG)wcslen(name),path,(ULONG)wcslen(path),0);}if(SUCCEEDED(hr))hr=p->EnableLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,TRUE);p->Release();}
   ITfCategoryMgr* c=nullptr;if(SUCCEEDED(hr))hr=CoCreateInstance(CLSID_TF_CategoryMgr,nullptr,CLSCTX_INPROC_SERVER,IID_ITfCategoryMgr,(void**)&c);
   if(c){for(const GUID* g:{&GUID_TFCAT_TIP_KEYBOARD,&GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT}){if(SUCCEEDED(hr))hr=c->RegisterCategory(CLSID_JianPin,*g,CLSID_JianPin);}c->Release();}
   if(FAILED(hr))DllUnregisterServer();if(SUCCEEDED(init))CoUninitialize();return hr;

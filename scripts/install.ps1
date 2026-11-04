@@ -16,9 +16,9 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 foreach ($name in @('JianPin.dll','JianPinBroker.exe','JianPinSettings.exe','rime.dll','data','licenses','docs','README.md','THIRD_PARTY.md','sources.lock.json','downloads.lock.json','uninstall.ps1')) {
   Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Recurse -Force
 }
-Set-Content -LiteralPath (Join-Path $target 'jianpin-install.marker') -Value 'JianPin 0.1.0' -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $target 'jianpin-install.marker') -Value 'JianPin 0.2.0' -Encoding UTF8
 $dll = Join-Path $target 'JianPin.dll'
 $proc = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" -ArgumentList @('/s', ('"' + $dll + '"')) -WindowStyle Hidden -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "注册失败，退出码 $($proc.ExitCode)。文件已保留供检查。" }
-Write-Host ('已安装到 {0}。请注销并重新登录，用 Win+空格选择：简拼 · 离线双拼。' -f $target)
+Write-Host ('已安装到 {0}。请注销并重新登录，用 Win+空格选择：简拼 · 离线拼音。' -f $target)
 Write-Host '设置：运行安装目录中的 JianPinSettings.exe。未修改默认输入法。'

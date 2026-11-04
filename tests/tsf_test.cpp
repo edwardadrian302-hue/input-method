@@ -47,10 +47,12 @@ static void check(bool good,const char* m){if(!good)throw std::runtime_error(m);
 static void pump(){MSG m;while(PeekMessageW(&m,nullptr,0,0,PM_REMOVE)){TranslateMessage(&m);DispatchMessageW(&m);}}
 int wmain(){
   PROCESS_INFORMATION process={};HMODULE dll=nullptr;ITfThreadMgr* mgr=nullptr;ITfDocumentMgr* doc=nullptr;ITfContext* ctx=nullptr;ITfTextInputProcessor* tip=nullptr;ITfKeyEventSink* keys=nullptr;Store* store=nullptr;bool active=false,ownBroker=false;int result=1;
+  auto testInstance=std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64());
+  SetEnvironmentVariableW(L"JIANPIN_TEST_INSTANCE",testInstance.c_str());
   CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);
   try{
     Response r;Request q;
-    check(!exchange(q,r),"Refusing test while a real JianPin broker is running");
+    check(!exchange(q,r),"Test namespace is already in use");
     auto root=moduleDir();auto home=root.parent_path()/L"test-output"/(L"tsf-"+std::to_wstring(GetTickCount64()));
     auto exe=root/L"JianPinBroker.exe";std::wstring cmd=L"\""+exe.wstring()+L"\" --data-dir \""+home.wstring()+L"\"";
     STARTUPINFOW si={sizeof(si)};si.dwFlags=STARTF_USESHOWWINDOW;si.wShowWindow=SW_HIDE;
@@ -72,11 +74,13 @@ int wmain(){
     check(SUCCEEDED(mgr->CreateDocumentMgr(&doc)),"create document");store=new Store;TfEditCookie cookie;
     check(SUCCEEDED(doc->CreateContext(id,0,store,&ctx,&cookie)),"create context");check(SUCCEEDED(doc->Push(ctx)),"push context");mgr->SetFocus(doc);pump();
     auto key=[&](WPARAM vk){BOOL eaten=FALSE;keys->OnTestKeyDown(ctx,vk,0,&eaten);check(eaten,"test key accepted");keys->OnKeyDown(ctx,vk,0,&eaten);pump();check(eaten,"edit session handled key");};
-    for(char c:std::string("NIHK"))key(c);
+    for(char c:std::string("XUE"))key(c);
+    check(store->text.find(L"xue")!=std::wstring::npos,"third full-pinyin letter reaches TSF composition");key(VK_ESCAPE);
+    for(char c:std::string("NIHAO"))key(c);
     check(!store->text.empty(),"composition inserted into TSF text store");
     key(VK_SPACE);check(store->text==L"你好","composition commits exactly once");
-    for(char c:std::string("VSGO"))key(c);key(VK_ESCAPE);check(store->text==L"你好","escape removes preedit only");
-    for(char c:std::string("VSGO"))key(c);key(VK_SPACE);check(store->text==L"你好中国","second composition appends");
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_ESCAPE);check(store->text==L"你好","escape removes preedit only");
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);check(store->text==L"你好中国","second composition appends");
     for(char c:std::string("NI"))key(c);keys->OnSetFocus(FALSE);pump();check(store->text==L"你好中国","focus loss cancels old composition");keys->OnSetFocus(TRUE);pump();
     ITfCompartmentMgr* cm=nullptr;ctx->QueryInterface(IID_ITfCompartmentMgr,(void**)&cm);ITfCompartment* disabled=nullptr;cm->GetCompartment(GUID_COMPARTMENT_KEYBOARD_DISABLED,&disabled);VARIANT value;VariantInit(&value);value.vt=VT_I4;value.lVal=1;disabled->SetValue(id,&value);
     BOOL guarded=TRUE;keys->OnTestKeyDown(ctx,'N',0,&guarded);check(!guarded,"disabled/password context bypasses IME");value.lVal=0;disabled->SetValue(id,&value);disabled->Release();cm->Release();

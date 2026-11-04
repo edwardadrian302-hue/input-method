@@ -31,7 +31,7 @@ void Engine::start() {
   shared_=utf8((root_/L"data").wstring()); user_=utf8((home_/L"engine").wstring()); staging_=utf8((home_/L"cache").wstring());
   RIME_STRUCT(RimeTraits,t); t.shared_data_dir=shared_.c_str(); t.user_data_dir=user_.c_str();
   t.prebuilt_data_dir=shared_.c_str(); t.staging_dir=staging_.c_str();
-  t.distribution_name="JianPin"; t.distribution_code_name="jianpin"; t.distribution_version="0.1.0";
+  t.distribution_name="JianPin"; t.distribution_code_name="jianpin"; t.distribution_version="0.2.0";
   t.app_name="rime.jianpin"; t.min_log_level=3; t.log_dir="";
   static const char* modules[]={"default",nullptr}; t.modules=modules;
   api_->setup(&t); api_->initialize(&t);

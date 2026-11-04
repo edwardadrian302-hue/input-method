@@ -1,0 +1,9 @@
+{
+  "url": "https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe",
+  "version": "6.7.4",
+  "sha256": "a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c",
+  "github_digest": "sha256:a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c",
+  "publisher": "CN=Pyrsys B.V., O=Pyrsys B.V., S=Noord-Holland, C=NL",
+  "language_url": "https://raw.githubusercontent.com/jrsoftware/issrc/is-6_7_4/Files/Languages/Unofficial/ChineseSimplified.isl",
+  "language_sha256": "7d544b9bb1d142cfa11f2e5d3cc8abe2e55f8e066c5124e3772675aa236e1278"
+}

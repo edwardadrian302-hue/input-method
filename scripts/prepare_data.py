@@ -7,17 +7,16 @@ import json
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DATA.mkdir(exist_ok=True)
-source = (ROOT / "vendor/double-pinyin/double_pinyin_mspy.schema.yaml").read_text(encoding="utf-8")
-# Sogou's default mapping matches these Microsoft keys except the extra ve->v alias.
-# Keep the original authors' rules and license; remove reverse lookup and traditional conversion.
-algebra = source.split("  algebra:\n", 1)[1].split("\ntranslator:", 1)[0]
-algebra = "\n".join(line for line in algebra.splitlines() if "derive/T$/V/" not in line and "#- abbrev" not in line)
-schema = '''# Modified from rime/rime-double-pinyin (GPL-3.0), original author: 佛振.
-# JianPin: Sogou key mapping, simplified dictionary, no Rime learning or plugins.
+# Full pinyin; a small explicit set of initial abbreviations, no fuzzy spelling.
+algebra = """    - abbrev/^([a-z]).+$/$1/
+    - abbrev/^([zcs]h).+$/$1/
+    - derive/^([nl])ue$/$1ve/
+    - derive/^([jqxy])u/$1v/"""
+schema = '''# JianPin: offline full pinyin using pinyin_simp; no Rime user dictionary.
 schema:
   schema_id: jianpin
-  name: 简拼 · 搜狗双拼
-  version: "0.1.0"
+  name: 简拼 · 全拼
+  version: "0.2.0"
 switches:
   - name: ascii_mode
     reset: 0
@@ -29,7 +28,7 @@ engine:
 menu:
   page_size: 9
 speller:
-  alphabet: "zyxwvutsrqponmlkjihgfedcba;"
+  alphabet: "zyxwvutsrqponmlkjihgfedcba"
   initials: zyxwvutsrqponmlkjihgfedcba
   delimiter: " '"
   algebra:
@@ -39,7 +38,7 @@ translator:
   prism: jianpin
   enable_user_dict: false
   enable_sentence: true
-  enable_completion: false
+  enable_completion: true
   contextual_suggestions: false
 key_binder:
   bindings:
@@ -61,7 +60,7 @@ punctuator:
     "'": { pair: ["‘", "’"] }
 '''
 (DATA / "jianpin.schema.yaml").write_text(schema, encoding="utf-8")
-(DATA / "default.yaml").write_text('''config_version: "0.1.0"
+(DATA / "default.yaml").write_text('''config_version: "0.2.0"
 schema_list:
   - schema: jianpin
 menu:
@@ -82,4 +81,4 @@ for repo in ["librime", "double-pinyin", "pinyin-simp"]:
         "commit": subprocess.check_output(["git", "-C", str(path), "rev-parse", "HEAD"], text=True).strip(),
     }
 (ROOT / "sources.lock.json").write_text(json.dumps(lock, indent=2) + "\n", encoding="utf-8")
-print("Prepared Sogou schema, offline dictionary, licenses, and source lock.")
+print("Prepared full-pinyin schema, offline dictionary, licenses, and source lock.")

@@ -44,7 +44,14 @@ inline std::wstring userSid() {
   if(!ConvertSidToStringSidW(reinterpret_cast<TOKEN_USER*>(b.data())->User.Sid,&str)) throw std::runtime_error("SID");
   std::wstring r=str; LocalFree(str); return r;
 }
-inline std::wstring pipeName() { return L"\\\\.\\pipe\\JianPin.v1."+userSid(); }
+// An optional numeric test namespace lets integration tests coexist with an installed IME.
+inline std::wstring instanceSuffix() {
+  wchar_t value[64]={};DWORD n=GetEnvironmentVariableW(L"JIANPIN_TEST_INSTANCE",value,64);
+  if(!n || n>=64)return {};
+  std::wstring text(value);if(!std::all_of(text.begin(),text.end(),[](wchar_t c){return (c>=L'0'&&c<=L'9')||c==L'-';}))return {};
+  return L".test."+text;
+}
+inline std::wstring pipeName() { return L"\\\\.\\pipe\\JianPin.v1."+userSid()+instanceSuffix(); }
 constexpr uint32_t kMagic=0x4A503031;
 enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown };
 struct Request { uint32_t magic=kMagic; Op op=Op::Status; uint64_t client=0; int32_t key=0,mask=0,value=0; };
