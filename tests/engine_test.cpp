@@ -56,7 +56,12 @@ int wmain(){
     require(std::wstring(key(',').commit)==L"，","Chinese punctuation");
     type("nihao",1);r=type("zhongguo",2);require(std::wstring(key(' ',1).commit)==L"你好","independent window sessions");
     require(std::wstring(key(' ',2).commit)==L"中国","second window session isolated");
-    op(Op::Erase);type("woxihuannimen");key(0xff0d);require(learnedWords().empty(),"raw Latin commits never learned");
+    op(Op::Erase);
+    for(const char* raw:{"hello","english","nihao","woxihuannimen","xi'an"}){
+      type(raw);auto literal=key(0xff0d);
+      require(literal.eaten&&std::wstring(literal.commit)==wide(raw)&&!*literal.preedit&&literal.count==0,"Return commits original Latin input without syllable formatting");
+    }
+    require(learnedWords().empty(),"raw Latin commits never learned");
     bool userdb=false;for(auto& entry:fs::recursive_directory_iterator(home))if(entry.path().wstring().find(L"userdb")!=std::wstring::npos)userdb=true;
     require(!userdb,"Rime user databases always disabled");
     op(Op::Erase);r=type("nihaozhongguoren");require(wcslen(r.candidates[0])>4,"long sentence fixture");key(' ');require(learnedWords().empty(),"default limit excludes long Chinese sentences");

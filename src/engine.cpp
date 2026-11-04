@@ -69,7 +69,7 @@ void Engine::start() {
   shared_=utf8((root_/L"data").wstring()); user_=utf8((home_/L"engine-v5").wstring()); staging_=utf8((home_/L"cache-v5").wstring());
   RIME_STRUCT(RimeTraits,t); t.shared_data_dir=shared_.c_str(); t.user_data_dir=user_.c_str();
   t.prebuilt_data_dir=shared_.c_str(); t.staging_dir=staging_.c_str();
-  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.5.0";
+  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.5.1";
   t.app_name="rime.chaoxipinyin"; t.min_log_level=3; t.log_dir="";
   static const char* modules[]={"default",nullptr}; t.modules=modules;
   api_->setup(&t); api_->initialize(&t);

@@ -2,14 +2,14 @@
 [Setup]
 AppId={{3719C10E-98BF-4B9E-A4F2-D3CEBC8FB692}
 AppName=潮汐拼音
-AppVersion=0.5.0-preview
+AppVersion=0.5.1-preview
 AppPublisher=潮汐拼音
 DefaultDirName=D:\ChaoxiPinyin
 DefaultGroupName=潮汐拼音
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir=..\build
-OutputBaseFilename=ChaoxiPinyin-0.5.0-preview-win-x64-Setup
+OutputBaseFilename=ChaoxiPinyin-0.5.1-preview-win-x64-Setup
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0
@@ -109,7 +109,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
-    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.5.0', False);
+    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.5.1', False);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);

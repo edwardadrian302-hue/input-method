@@ -6,5 +6,5 @@ foreach ($name in $files) { if (!(Test-Path (Join-Path 'dist' $name))) { throw "
 $hashes = Get-ChildItem dist -File | Where-Object { $_.Name -in $files } | Get-FileHash -Algorithm SHA256 | ForEach-Object { '{0}  {1}' -f $_.Hash.ToLower(),[IO.Path]::GetFileName($_.Path) }
 $hashes | Set-Content dist/SHA256SUMS.txt -Encoding ascii
 $paths = @($files + 'SHA256SUMS.txt' | ForEach-Object { Join-Path 'dist' $_ })
-Compress-Archive -Path $paths -DestinationPath build/ChaoxiPinyin-0.5.0-preview-win-x64.zip -Force
-Get-FileHash build/ChaoxiPinyin-0.5.0-preview-win-x64.zip -Algorithm SHA256
+Compress-Archive -Path $paths -DestinationPath build/ChaoxiPinyin-0.5.1-preview-win-x64.zip -Force
+Get-FileHash build/ChaoxiPinyin-0.5.1-preview-win-x64.zip -Algorithm SHA256

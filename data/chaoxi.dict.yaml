@@ -2,7 +2,7 @@
 # Wrapper modified for 潮汐拼音: no English, Lua plugins, or network services.
 ---
 name: chaoxi
-version: '0.5.0'
+version: '0.5.1'
 sort: by_weight
 import_tables:
   - cn_dicts/8105

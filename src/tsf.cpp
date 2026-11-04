@@ -124,9 +124,10 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
     if(view_.prediction&&(key==' '||key==0xff1b||(key>='1'&&key<'1'+view_.count)))return true;
     return (key>='a' && key<='z') || (key>='A' && key<='Z') || (key && std::string(",.!?:;\"'()[]/\\<>_").find((char)key)!=std::string::npos);
   }
-  void toggleMode() {
+  void toggleMode(bool raw=false) {
     if(composingContext_ && *view_.preedit){
-      auto edit=new Edit(this,composingContext_,' ',0);HRESULT result=E_FAIL;
+      // Rime Return commits the original input, without preedit syllable spacing.
+      auto edit=new Edit(this,composingContext_,raw?0xff0d:' ',0);HRESULT result=E_FAIL;
       auto hr=composingContext_->RequestEditSession(client_,edit,TF_ES_SYNC|TF_ES_READWRITE,&result);
       bool ok=SUCCEEDED(hr)&&SUCCEEDED(result)&&edit->eaten;edit->Release();if(!ok)return;
     }
@@ -194,7 +195,7 @@ public:
     *eaten=SUCCEEDED(hr)&&SUCCEEDED(result)&&edit->eaten;edit->Release();return S_OK;
   }
   HRESULT STDMETHODCALLTYPE OnTestKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=vk==VK_SHIFT&&shiftOnly_;return S_OK;}
-  HRESULT STDMETHODCALLTYPE OnKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=FALSE;if(vk==VK_SHIFT&&shiftOnly_){toggleMode();shiftOnly_=false;*eaten=TRUE;}return S_OK;}
+  HRESULT STDMETHODCALLTYPE OnKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=FALSE;if(vk==VK_SHIFT&&shiftOnly_){toggleMode(true);shiftOnly_=false;*eaten=TRUE;}return S_OK;}
   HRESULT STDMETHODCALLTYPE OnPreservedKey(ITfContext*,REFGUID,BOOL* eaten) override{*eaten=FALSE;return S_OK;}
   HRESULT STDMETHODCALLTYPE OnInitDocumentMgr(ITfDocumentMgr*) override{return S_OK;}
   HRESULT STDMETHODCALLTYPE OnUninitDocumentMgr(ITfDocumentMgr*) override{return S_OK;}

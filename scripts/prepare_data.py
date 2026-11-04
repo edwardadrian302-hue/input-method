@@ -16,7 +16,7 @@ schema = '''# ChaoxiPinyin: full pinyin using pinned rime-ice dictionaries; no R
 schema:
   schema_id: chaoxipinyin
   name: 潮汐拼音
-  version: "0.5.0"
+  version: "0.5.1"
 switches:
   - name: ascii_mode
     reset: 0
@@ -61,7 +61,7 @@ punctuator:
     "'": { pair: ["‘", "’"] }
 '''
 (DATA / "chaoxipinyin.schema.yaml").write_text(schema, encoding="utf-8")
-(DATA / "default.yaml").write_text('''config_version: "0.5.0"
+(DATA / "default.yaml").write_text('''config_version: "0.5.1"
 schema_list:
   - schema: chaoxipinyin
 menu:
@@ -83,7 +83,7 @@ for name in ("8105", "base", "ext"):
 # Wrapper modified for 潮汐拼音: no English, Lua plugins, or network services.
 ---
 name: chaoxi
-version: '0.5.0'
+version: '0.5.1'
 sort: by_weight
 import_tables:
   - cn_dicts/8105

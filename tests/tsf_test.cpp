@@ -93,7 +93,7 @@ int wmain(){
     keys->OnKeyDown(ctx,VK_SHIFT,0,&shift);check(shift,"Shift down consumed consistently");
     keys->OnTestKeyUp(ctx,VK_SHIFT,0,&shift);check(shift,"Shift key up routed to IME");
     keys->OnKeyUp(ctx,VK_SHIFT,0,&shift);pump();check(shift,"Shift toggle handled");
-    check(store->text==L"你好中国，；你好，你好","Shift commits pending first candidate instead of discarding it");
+    check(store->text==L"你好中国，；你好，nihao","Shift commits original letters without generated pinyin spaces or Chinese candidates");
     ITfLangBarItemMgr* bar=testBar;bar->AddRef();
     const GUID inputMode={0x2c77a81e,0x41cc,0x4178,{0xa3,0xa7,0x5f,0x8a,0x98,0x75,0x68,0xe6}};
     ITfLangBarItem* item=nullptr;auto barResult=bar->GetItem(inputMode,&item);bar->Release();check(SUCCEEDED(barResult)&&item,"input mode button registered with language bar");
@@ -107,6 +107,13 @@ int wmain(){
     check(SUCCEEDED(button->OnClick(2,{0,0},nullptr)),"click toggles mode");button->Release();
     tooltip=nullptr;item->GetTooltipString(&tooltip);bool chineseTooltip=tooltip&&std::wstring(tooltip).find(L"中文")!=std::wstring::npos;SysFreeString(tooltip);item->Release();check(chineseTooltip,"click updates Chinese state");
     eaten=FALSE;keys->OnTestKeyDown(ctx,'A',0,&eaten);check(eaten,"click restores Chinese key handling");
+    auto shiftToggle=[&](){BOOL handled=FALSE;keys->OnTestKeyDown(ctx,VK_SHIFT,0,&handled);check(handled,"Shift routed");keys->OnKeyDown(ctx,VK_SHIFT,0,&handled);keys->OnTestKeyUp(ctx,VK_SHIFT,0,&handled);check(handled,"Shift release routed");keys->OnKeyUp(ctx,VK_SHIFT,0,&handled);pump();check(handled,"Shift toggled");};
+    auto beforeEnglish=store->text;
+    for(char c:std::string("HELLO"))key(c);shiftToggle();
+    check(store->text==beforeEnglish+L"hello","English word is committed literally by Shift");
+    shiftToggle();check(store->text==beforeEnglish+L"hello","empty Shift toggle inserts no duplicate text");
+    for(char c:std::string("NIHAOX"))key(c);key(VK_BACK);shiftToggle();
+    check(store->text==beforeEnglish+L"hellonihao","Shift commits edited raw input");shiftToggle();
     q=Request{};q.op=Op::PhrasePut;copyText(q.code,L"zhong guo ce shi hou zhui");copyText(q.text,L"中国测试后缀");check(exchange(q,r),"add isolated prediction fixture");
     q=Request{};q.op=Op::Configure;q.value=OptCompletion|OptLearning|OptPrediction;q.key=12;check(exchange(q,r),"enable offline prediction");
     auto beforePrediction=store->text;
