@@ -1,0 +1,26 @@
+{
+  "commit": "99662ba01e3affa6a0f009174ca530b887bac3b6",
+  "url": "https://github.com/iDvel/rime-ice",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+    },
+    {
+      "path": "README.md",
+      "sha256": "818e752e0e4bc38eadd17fd11e4139d31379aa0193476f3885b9f40e3a95f37e"
+    },
+    {
+      "path": "cn_dicts/8105.dict.yaml",
+      "sha256": "1f9a42b91dea6982baee2551981780271aeffd78876662b9c9f324e56b37b120"
+    },
+    {
+      "path": "cn_dicts/base.dict.yaml",
+      "sha256": "551cad93c2e74c7325599e0d23afbf71c2d2e57df9af3f8f6fa16d87e60290a3"
+    },
+    {
+      "path": "cn_dicts/ext.dict.yaml",
+      "sha256": "d2d52bf75f7bcdd8a4afb036ab879415a7e620e529a4ecebc71780fe7ccdf648"
+    }
+  ]
+}

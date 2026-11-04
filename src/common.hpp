@@ -14,6 +14,9 @@
 #include <algorithm>
 #include <cstdint>
 namespace fs = std::filesystem;
+constexpr int OptCompletion=1,OptAsciiPunct=2,OptLearning=4;
+constexpr int FuzzyZ=1,FuzzyC=2,FuzzyS=4,FuzzyNL=8,FuzzyEn=16,FuzzyAn=32,FuzzyIn=64;
+
 inline std::string utf8(const std::wstring& s) {
   if(s.empty()) return {};
   int n=WideCharToMultiByte(CP_UTF8,0,s.data(),(int)s.size(),nullptr,0,nullptr,nullptr);
@@ -32,7 +35,7 @@ inline fs::path moduleDir(HMODULE mod=nullptr) {
 inline fs::path userDir() {
   PWSTR p=nullptr;
   if(FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData,0,nullptr,&p))) throw std::runtime_error("local app data");
-  fs::path r=fs::path(p)/L"JianPin"; CoTaskMemFree(p); return r;
+  fs::path r=fs::path(p)/L"ChaoxiPinyin"; CoTaskMemFree(p); return r;
 }
 inline std::wstring userSid() {
   HANDLE token=nullptr; if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token)) throw std::runtime_error("token");
@@ -46,18 +49,18 @@ inline std::wstring userSid() {
 }
 // An optional numeric test namespace lets integration tests coexist with an installed IME.
 inline std::wstring instanceSuffix() {
-  wchar_t value[64]={};DWORD n=GetEnvironmentVariableW(L"JIANPIN_TEST_INSTANCE",value,64);
+  wchar_t value[64]={};DWORD n=GetEnvironmentVariableW(L"CHAOXI_TEST_INSTANCE",value,64);
   if(!n || n>=64)return {};
   std::wstring text(value);if(!std::all_of(text.begin(),text.end(),[](wchar_t c){return (c>=L'0'&&c<=L'9')||c==L'-';}))return {};
   return L".test."+text;
 }
-inline std::wstring pipeName() { return L"\\\\.\\pipe\\JianPin.v1."+userSid()+instanceSuffix(); }
-constexpr uint32_t kMagic=0x4A503031;
-enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown };
+inline std::wstring pipeName() { return L"\\\\.\\pipe\\ChaoxiPinyin.v3."+userSid()+instanceSuffix(); }
+constexpr uint32_t kMagic=0x43503033;
+enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown,Configure };
 struct Request { uint32_t magic=kMagic; Op op=Op::Status; uint64_t client=0; int32_t key=0,mask=0,value=0; };
 struct Response {
-  uint32_t magic=kMagic; int32_t ok=0,eaten=0,learning=1,font=18,page=0,last=1,count=0,highlight=0;
-  int32_t storageError=0;
+  uint32_t magic=kMagic; int32_t ok=0,eaten=0,learning=1,font=12,page=0,last=1,count=0,highlight=0;
+  int32_t storageError=0,options=1,fuzzy=0;
   wchar_t preedit[512]={},commit[1024]={},candidates[9][256]={};
 };
 template<size_t N> inline void copyText(wchar_t (&out)[N],const std::wstring& s) { wcsncpy_s(out,N,s.c_str(),_TRUNCATE); }
@@ -87,7 +90,7 @@ inline bool exchange(const Request& q,Response& r,DWORD timeout=600) {
   return received && r.ok;
 }
 inline void launchBroker(const fs::path& dir) {
-  std::wstring cmd=L"\""+(dir/L"JianPinBroker.exe").wstring()+L"\"";
+  std::wstring cmd=L"\""+(dir/L"ChaoxiPinyinBroker.exe").wstring()+L"\"";
   STARTUPINFOW si={sizeof(si)}; si.dwFlags=STARTF_USESHOWWINDOW; si.wShowWindow=SW_HIDE; PROCESS_INFORMATION pi={};
-  if(CreateProcessW((dir/L"JianPinBroker.exe").c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,dir.c_str(),&si,&pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
+  if(CreateProcessW((dir/L"ChaoxiPinyinBroker.exe").c_str(),cmd.data(),nullptr,nullptr,FALSE,CREATE_NO_WINDOW,nullptr,dir.c_str(),&si,&pi)) { CloseHandle(pi.hThread); CloseHandle(pi.hProcess); }
 }

@@ -1,6 +1,6 @@
-config_version: "0.2.0"
+config_version: "0.3.0"
 schema_list:
-  - schema: jianpin
+  - schema: chaoxipinyin
 menu:
   page_size: 9
 switcher:

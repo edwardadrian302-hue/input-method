@@ -7,7 +7,7 @@ int wmain(int argc,wchar_t** argv) {
     PSECURITY_DESCRIPTOR sd=nullptr;
     if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(),SDDL_REVISION_1,&sd,nullptr)) return 2;
     SECURITY_ATTRIBUTES sa={sizeof(sa),sd,FALSE};
-    HANDLE mutex=CreateMutexW(&sa,TRUE,(L"Local\\JianPin.Broker."+sid+instanceSuffix()).c_str());
+    HANDLE mutex=CreateMutexW(&sa,TRUE,(L"Local\\ChaoxiPinyin.Broker."+sid+instanceSuffix()).c_str());
     if(!mutex)throw std::runtime_error("Cannot create user mutex; run in a normal Windows user session");
     if(GetLastError()==ERROR_ALREADY_EXISTS) { CloseHandle(mutex);LocalFree(sd);return 0; }
     Engine engine(moduleDir(),home);
@@ -41,5 +41,5 @@ int wmain(int argc,wchar_t** argv) {
       DisconnectNamedPipe(pipe); CloseHandle(ov.hEvent);
     }
     CloseHandle(pipe);ReleaseMutex(mutex); CloseHandle(mutex); LocalFree(sd); return 0;
-  } catch(const std::exception& e) { std::cerr<<"JianPin startup failed: "<<e.what()<<"\n"; return 1; }
+  } catch(const std::exception& e) { std::cerr<<"ChaoxiPinyin startup failed: "<<e.what()<<"\n"; return 1; }
 }

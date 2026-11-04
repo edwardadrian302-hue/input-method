@@ -1,16 +1,18 @@
 #pragma once
 #include <msctf.h>
-// Only keyboard subscription is replaced: Windows rejects subscriptions from an
-// unregistered TIP. All text stores, edit sessions, ranges and notifications remain real TSF.
+#include <ctfutb.h>
+// Keyboard and language-bar subscriptions are isolated for an unregistered TIP.
+// All text stores, edit sessions, ranges and composition notifications remain real TSF.
 // This is not a test of system registration or actual browser key routing.
-class TestManager final:public ITfThreadMgr,public ITfKeystrokeMgr {
-  LONG refs_=1;ITfThreadMgr* real_;
+class TestManager final:public ITfThreadMgr,public ITfKeystrokeMgr,public ITfLangBarItemMgr {
+  LONG refs_=1;ITfThreadMgr* real_;ITfLangBarItem* item_=nullptr;
 public:
   explicit TestManager(ITfThreadMgr* m):real_(m){m->AddRef();}
-  ~TestManager(){real_->Release();}
+  ~TestManager(){if(item_)item_->Release();real_->Release();}
   HRESULT STDMETHODCALLTYPE QueryInterface(REFIID i,void** p)override{
     if(i==IID_IUnknown||i==IID_ITfThreadMgr){*p=static_cast<ITfThreadMgr*>(this);AddRef();return S_OK;}
     if(i==IID_ITfKeystrokeMgr){*p=static_cast<ITfKeystrokeMgr*>(this);AddRef();return S_OK;}
+    if(i==IID_ITfLangBarItemMgr){*p=static_cast<ITfLangBarItemMgr*>(this);AddRef();return S_OK;}
     return real_->QueryInterface(i,p);
   }
   ULONG STDMETHODCALLTYPE AddRef()override{return InterlockedIncrement(&refs_);}
@@ -26,6 +28,18 @@ public:
   HRESULT STDMETHODCALLTYPE GetFunctionProvider(REFCLSID c,ITfFunctionProvider** p)override{return real_->GetFunctionProvider(c,p);}
   HRESULT STDMETHODCALLTYPE EnumFunctionProviders(IEnumTfFunctionProviders** p)override{return real_->EnumFunctionProviders(p);}
   HRESULT STDMETHODCALLTYPE GetGlobalCompartment(ITfCompartmentMgr** p)override{return real_->GetGlobalCompartment(p);}
+  HRESULT STDMETHODCALLTYPE EnumItems(IEnumTfLangBarItems**)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetItem(REFGUID guid,ITfLangBarItem** item)override{*item=nullptr;if(!item_)return E_FAIL;TF_LANGBARITEMINFO info={};item_->GetInfo(&info);if(info.guidItem!=guid)return E_FAIL;*item=item_;item_->AddRef();return S_OK;}
+  HRESULT STDMETHODCALLTYPE AddItem(ITfLangBarItem* item)override{if(item_)return E_FAIL;item_=item;item_->AddRef();return S_OK;}
+  HRESULT STDMETHODCALLTYPE RemoveItem(ITfLangBarItem* item)override{if(item!=item_)return E_FAIL;item_->Release();item_=nullptr;return S_OK;}
+  HRESULT STDMETHODCALLTYPE AdviseItemSink(ITfLangBarItemSink*,DWORD*,REFGUID)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE UnadviseItemSink(DWORD)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetItemFloatingRect(DWORD,REFGUID,RECT*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetItemsStatus(ULONG,const GUID*,DWORD*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetItemNum(ULONG* count)override{*count=item_?1:0;return S_OK;}
+  HRESULT STDMETHODCALLTYPE GetItems(ULONG,ITfLangBarItem**,TF_LANGBARITEMINFO*,DWORD*,ULONG*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE AdviseItemsSink(ULONG,ITfLangBarItemSink**,const GUID*,DWORD*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE UnadviseItemsSink(ULONG,DWORD*)override{return E_NOTIMPL;}
   HRESULT STDMETHODCALLTYPE AdviseKeyEventSink(TfClientId,ITfKeyEventSink*,BOOL)override{return S_OK;}
   HRESULT STDMETHODCALLTYPE UnadviseKeyEventSink(TfClientId)override{return S_OK;}
   HRESULT STDMETHODCALLTYPE GetForeground(CLSID*)override{return E_NOTIMPL;}

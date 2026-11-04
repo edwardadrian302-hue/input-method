@@ -6,12 +6,30 @@ static int checks=0;
 static void require(bool good,const char* message){if(!good)throw std::runtime_error(message);++checks;}
 int wmain(){
   try{
-    auto root=moduleDir();auto home=root.parent_path()/L"test-output"/(L"run-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
+    auto root=moduleDir().parent_path().parent_path()/L"dist";auto home=root.parent_path()/L"test-output"/(L"run-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
     auto engine=std::make_unique<Engine>(root,home);
     auto op=[&](Op op,int value=0,uint64_t client=1){Request q;q.op=op;q.value=value;q.client=client;return engine->handle(q);};
     auto key=[&](int k,uint64_t client=1){Request q;q.op=Op::Key;q.key=k;q.client=client;return engine->handle(q);};
     auto type=[&](const char* input,uint64_t client=1){op(Op::Clear,0,client);Response r;for(auto p=input;*p;++p)r=key(*p,client);return r;};
     require(op(Op::Status).learning==1,"learning defaults on");
+    auto configure=[&](int options,int fuzzy=0,int font=12){Request q;q.op=Op::Configure;q.value=options;q.mask=fuzzy;q.key=font;return engine->handle(q);};
+    auto contains=[&](const Response& r,const wchar_t* word){for(int i=0;i<r.count;++i)if(std::wstring(r.candidates[i])==word)return true;return false;};
+    require(op(Op::Status).font==12,"compact default font is 12 points");
+    auto fixture=type("qishangbaxia");require(std::wstring(fixture.candidates[0])==L"七上八下","common idiom ranks first");
+    require(contains(type("shenm"),L"什么"),"unfinished full pinyin shenm offers shen me");
+    require(contains(type("zenm"),L"怎么"),"unfinished full pinyin zenm offers zen me");
+    require(contains(type("sm"),L"什么"),"initial abbreviation sm offers shen me");
+    op(Op::Clear);
+    require(std::wstring(key(';').commit)==L"；","idle semicolon emits Chinese semicolon");
+    require(std::wstring(key('.').commit)==L"。","idle period emits Chinese period");
+    type("nihao");require(std::wstring(key(',').commit)==L"你好，","comma commits selected word followed by punctuation");
+    type("nihao");require(std::wstring(key(';').commit)==L"你好；","semicolon commits selected word followed by punctuation");
+    configure(OptCompletion|OptAsciiPunct|OptLearning);
+    require(std::wstring(key(',').commit)==L",","English punctuation option emits ASCII comma");
+    require(std::wstring(key(';').commit)==L";","English punctuation option emits ASCII semicolon");
+    type("nihao");require(std::wstring(key(';').commit)==L"你好;","English punctuation option preserves composition");
+    configure(OptCompletion|OptLearning);
+
     auto r=type("xu");auto beforeE=std::wstring(r.preedit);r=key('e');
     require(r.eaten && std::wstring(r.preedit)!=beforeE && std::wstring(r.preedit).find(L"xue")!=std::wstring::npos,"third letter e updates xu to xue");
     bool hasXue=false;for(int page=0;page<10;++page){for(int i=0;i<r.count;++i)if(std::wstring(r.candidates[i])==L"学")hasXue=true;if(hasXue||r.last)break;r=key('=');}
@@ -47,6 +65,23 @@ int wmain(){
     op(Op::Learning,1);type("zhongguo");
     HANDLE locked=CreateFileW(learned.c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);require(locked!=INVALID_HANDLE_VALUE,"lock learning file for failure test");
     r=key(' ');CloseHandle(locked);require(std::wstring(r.commit)==L"中国" && r.storageError,"storage failure never loses committed text");
+    op(Op::Clear);
+    configure(OptLearning);
+    require(!contains(type("shenm"),L"什么"),"turning off completion disables mixed unfinished spelling");
+    configure(OptCompletion|OptLearning,FuzzyS);
+    require(contains(type("senme"),L"什么"),"s/sh fuzzy switch changes recognition");
+    configure(OptCompletion|OptLearning,0);
+    require(!contains(type("senme"),L"什么"),"disabling fuzzy restores exact recognition");
+    configure(OptCompletion|OptLearning,FuzzyZ|FuzzyC|FuzzyS|FuzzyNL|FuzzyEn|FuzzyAn|FuzzyIn,14);
+    require(contains(type("zidao"),L"知道"),"z/zh fuzzy recognition");
+    require(contains(type("cifan"),L"吃饭"),"c/ch fuzzy recognition");
+    require(contains(type("penyou"),L"朋友"),"en/eng fuzzy recognition");
+    require(contains(type("banggong"),L"办公"),"an/ang fuzzy recognition");
+    require(contains(type("mintian"),L"明天"),"in/ing fuzzy recognition");
+    require(contains(type("lihao"),L"你好"),"n/l fuzzy recognition");
+    engine.reset();engine=std::make_unique<Engine>(root,home);
+    require(op(Op::Status).fuzzy==127 && op(Op::Status).font==14,"visual settings persist across restart");
+    configure(OptCompletion|OptLearning,0);
     std::cout<<"PASS: "<<checks<<" engine checks. Test data: "<<utf8(home.wstring())<<"\n";return 0;
   }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<" checks: "<<e.what()<<"\n";return 1;}
 }

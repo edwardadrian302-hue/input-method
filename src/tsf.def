@@ -1,4 +1,4 @@
-LIBRARY JianPin
+LIBRARY ChaoxiPinyin
 EXPORTS
  DllGetClassObject PRIVATE
  DllCanUnloadNow PRIVATE

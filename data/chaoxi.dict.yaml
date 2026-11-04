@@ -1,0 +1,11 @@
+# Chinese tables from iDvel/rime-ice, pinned in dictionary.lock.json.
+# Wrapper modified for 潮汐拼音: no English, Lua plugins, or network services.
+---
+name: chaoxi
+version: '0.3.0'
+sort: by_weight
+import_tables:
+  - cn_dicts/8105
+  - cn_dicts/base
+  - cn_dicts/ext
+...

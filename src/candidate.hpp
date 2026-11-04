@@ -4,18 +4,18 @@
 class CandidatePanel {
   HFONT text_=nullptr,small_=nullptr;
 public:
-  int dpi=96,width=280,height=400,row=36,header=40,footer=28;
+  int dpi=96,width=160,height=280,row=26,header=27,footer=23;
   int px(int n) const{return MulDiv(n,dpi,96);}
   ~CandidatePanel(){if(text_)DeleteObject(text_);if(small_)DeleteObject(small_);}
   void layout(HDC dc,const Response& v,UINT scale,int maxWidth,int maxHeight=10000){
     dpi=scale;if(text_)DeleteObject(text_);if(small_)DeleteObject(small_);
     auto make=[&](int size){return CreateFontW(-size,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Microsoft YaHei UI");};
     int font=MulDiv(v.font,dpi,72);text_=make(font);small_=make(px(13));
-    row=font+px(12);header=px(38);footer=px(28);width=px(280);
+    row=font+px(8);header=px(27);footer=px(23);width=px(150);
     auto old=SelectObject(dc,text_);SIZE s={};
     for(int i=0;i<v.count;++i){GetTextExtentPoint32W(dc,v.candidates[i],(int)wcslen(v.candidates[i]),&s);width=std::max(width,(int)s.cx+px(64));}
     SelectObject(dc,small_);GetTextExtentPoint32W(dc,v.preedit,(int)wcslen(v.preedit),&s);width=std::max(width,(int)s.cx+px(32));SelectObject(dc,old);
-    width=std::min(width,maxWidth);height=header+row*v.count+footer;
+    width=std::min(width,std::min(px(440),maxWidth));height=header+row*v.count+footer;
     if(height>maxHeight){row=std::max(1,(maxHeight-header-footer)/std::max(1,v.count));height=std::min(maxHeight,header+row*v.count+footer);}
   }
   void paint(HDC target,const Response& v){
@@ -33,7 +33,7 @@ public:
     SelectObject(dc,small_);
     std::wstring page=L"第 "+std::to_wstring(v.page+1)+L" 页";
     if(v.page>0)page=L"‹  "+page;if(!v.last)page+=L"  ›";
-    label(page,{px(14),height-footer,width-px(14),height-px(2)},RGB(166,171,162),DT_RIGHT);
+    label(page,{px(14),height-footer,width-px(10),height-px(2)},RGB(166,171,162),DT_RIGHT);
     SelectObject(dc,font);BitBlt(target,0,0,width,height,dc,0,0,SRCCOPY);SelectObject(dc,previous);DeleteObject(bitmap);DeleteDC(dc);
   }
 };

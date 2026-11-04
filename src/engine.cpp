@@ -1,9 +1,12 @@
 #include "engine.hpp"
 #include <fstream>
+#include <sstream>
 Engine::Engine(const fs::path& root,const fs::path& home):root_(root),home_(home) {
   fs::create_directories(home_);
   learning_=GetPrivateProfileIntW(L"settings",L"learning",1,(home_/L"settings.ini").c_str())!=0;
-  font_=std::clamp((int)GetPrivateProfileIntW(L"settings",L"font",18,(home_/L"settings.ini").c_str()),12,32);
+  font_=std::clamp((int)GetPrivateProfileIntW(L"settings",L"font",12,(home_/L"settings.ini").c_str()),10,24);
+  options_=GetPrivateProfileIntW(L"settings",L"options",OptCompletion,(home_/L"settings.ini").c_str()) & 3;
+  fuzzy_=GetPrivateProfileIntW(L"settings",L"fuzzy",0,(home_/L"settings.ini").c_str()) & 127;
   std::ifstream words(home_/L"words.tsv"); std::string line;
   while(words_.size()<4096 && std::getline(words,line)) {
     auto tab=line.find('\t'); if(tab==std::string::npos)continue;
@@ -24,21 +27,51 @@ Engine::~Engine() { stop(); if(dll_) FreeLibrary(dll_); }
 void Engine::save() {
   auto file=home_/L"settings.ini";
   if(!WritePrivateProfileStringW(L"settings",L"learning",learning_?L"1":L"0",file.c_str()) ||
-     !WritePrivateProfileStringW(L"settings",L"font",std::to_wstring(font_).c_str(),file.c_str())) throw std::runtime_error("Cannot save settings");
+     !WritePrivateProfileStringW(L"settings",L"font",std::to_wstring(font_).c_str(),file.c_str()) ||
+     !WritePrivateProfileStringW(L"settings",L"options",std::to_wstring(options_).c_str(),file.c_str()) ||
+     !WritePrivateProfileStringW(L"settings",L"fuzzy",std::to_wstring(fuzzy_).c_str(),file.c_str())) throw std::runtime_error("Cannot save settings");
+}
+void Engine::configureSchema() {
+  fs::create_directories(home_/L"engine");
+  auto file=home_/L"engine"/L"chaoxipinyin.custom.yaml";
+  std::ostringstream text;
+  text<<"patch:\n  translator/enable_completion: "<<((options_&OptCompletion)?"true":"false")
+      <<"\n  translator/enable_word_completion: false\n  speller/algebra:\n";
+  // Derive fuzzy spellings before abbreviating, so shenm / sm remain valid.
+  if(fuzzy_&FuzzyZ)text<<"    - derive/^zh/z/\n    - derive/^z([^h])/zh$1/\n";
+  if(fuzzy_&FuzzyC)text<<"    - derive/^ch/c/\n    - derive/^c([^h])/ch$1/\n";
+  if(fuzzy_&FuzzyS)text<<"    - derive/^sh/s/\n    - derive/^s([^h])/sh$1/\n";
+  if(fuzzy_&FuzzyNL)text<<"    - derive/^n/l/\n    - derive/^l/n/\n";
+  if(fuzzy_&FuzzyEn)text<<"    - derive/eng$/en/\n    - derive/en$/eng/\n";
+  if(fuzzy_&FuzzyAn)text<<"    - derive/ang$/an/\n    - derive/an$/ang/\n";
+  if(fuzzy_&FuzzyIn)text<<"    - derive/ing$/in/\n    - derive/in$/ing/\n";
+  text<<"    - derive/^([nl])ue$/$1ve/\n    - derive/^([jqxy])u/$1v/\n";
+  if(options_&OptCompletion)text<<"    - abbrev/^([a-z]).+$/$1/\n    - abbrev/^([zcs]h).+$/$1/\n";
+  auto content=text.str();std::ifstream previous(file,std::ios::binary);
+  std::string old((std::istreambuf_iterator<char>(previous)),{});
+  previous.close();
+  if(old==content)return;
+  // Rime's modification check has second-level timestamps. Invalidate just the
+  // derived schema/prism so rapid changes cannot reuse the previous spelling rules.
+  fs::remove(home_/L"cache"/L"chaoxipinyin.schema.yaml");
+  fs::remove(home_/L"cache"/L"chaoxipinyin.prism.bin");
+  auto temp=file;temp+=L".tmp";std::ofstream out(temp,std::ios::binary|std::ios::trunc);out<<content;out.close();
+  if(!out||!MoveFileExW(temp.c_str(),file.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Cannot save spelling configuration");
 }
 void Engine::start() {
+  configureSchema();
   fs::create_directories(home_/L"engine"); fs::create_directories(home_/L"cache");
   shared_=utf8((root_/L"data").wstring()); user_=utf8((home_/L"engine").wstring()); staging_=utf8((home_/L"cache").wstring());
   RIME_STRUCT(RimeTraits,t); t.shared_data_dir=shared_.c_str(); t.user_data_dir=user_.c_str();
   t.prebuilt_data_dir=shared_.c_str(); t.staging_dir=staging_.c_str();
-  t.distribution_name="JianPin"; t.distribution_code_name="jianpin"; t.distribution_version="0.2.0";
-  t.app_name="rime.jianpin"; t.min_log_level=3; t.log_dir="";
+  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.3.0";
+  t.app_name="rime.chaoxipinyin"; t.min_log_level=3; t.log_dir="";
   static const char* modules[]={"default",nullptr}; t.modules=modules;
   api_->setup(&t); api_->initialize(&t);
-  // Maintenance is never run on a browser thread. Both schemas are built before IPC is ready.
-  if(api_->start_maintenance(False)) api_->join_maintenance_thread();
+  // Maintenance is never run on a browser thread. The schema is built before IPC is ready.
+  if(api_->start_maintenance(True)) api_->join_maintenance_thread();
   auto id=api_->create_session();
-  bool ok=id && api_->select_schema(id,"jianpin");
+  bool ok=id && api_->select_schema(id,"chaoxipinyin");
   if(id) api_->destroy_session(id);
   if(!ok) { stop(); throw std::runtime_error("Schema deployment failed"); }
 }
@@ -54,18 +87,23 @@ RimeSessionId Engine::session(uint64_t client) {
   }
   if(sessions_.size()>=256) throw std::runtime_error("Too many sessions");
   auto id=api_->create_session();
-  if(!id || !api_->select_schema(id,"jianpin")) throw std::runtime_error("Session failed");
+  if(!id || !api_->select_schema(id,"chaoxipinyin")) throw std::runtime_error("Session failed");
   sessions_[client]=id; return id;
 }
 Response Engine::handle(const Request& q) {
   Response r;
   if(q.magic!=kMagic) return r;
-  if(q.op==Op::Learning) {
+  if(q.op==Op::Configure) {
+    int oldOptions=options_,oldFuzzy=fuzzy_,oldFont=font_;bool oldLearning=learning_;
+    options_=q.value&3;learning_=(q.value&OptLearning)!=0;fuzzy_=q.mask&127;font_=std::clamp(q.key,10,24);
+    try {if(((oldOptions^options_)&OptCompletion)||oldFuzzy!=fuzzy_){stop();start();}save();}
+    catch(...){options_=oldOptions;fuzzy_=oldFuzzy;font_=oldFont;learning_=oldLearning;stop();start();throw;}
+  } else if(q.op==Op::Learning) {
     learning_=q.value!=0; save();
     // Rime user dictionaries are always disabled. Only our bounded word-frequency table learns.
     for(auto& s:sessions_) api_->destroy_session(s.second);
     sessions_.clear(); order_.clear();
-  } else if(q.op==Op::Font) { font_=std::clamp(q.value,12,32); save(); }
+  } else if(q.op==Op::Font) { font_=std::clamp(q.value,10,24); save(); }
   else if(q.op==Op::Erase) {
     words_.clear(); saveWords();storageError_=false;
     for(auto& s:sessions_)api_->destroy_session(s.second);
@@ -74,6 +112,7 @@ Response Engine::handle(const Request& q) {
     auto it=sessions_.find(q.client); if(it!=sessions_.end()) { api_->destroy_session(it->second); sessions_.erase(it); } order_.erase(q.client);
   } else if(q.op==Op::Clear || q.op==Op::Key) {
     auto id=session(q.client);
+    std::wstring punctuation;
     if(q.op==Op::Clear) api_->clear_composition(id);
     else {
       const char* input=api_->get_input(id);
@@ -82,7 +121,17 @@ Response Engine::handle(const Request& q) {
         int key=q.key; auto& order=order_[q.client];
         int selected=key==' '?0:(key>='1'&&key<='9'?key-'1':-1);
         if(selected>=0 && selected<(int)order.size())key='1'+order[selected];
-        r.eaten=api_->process_key(id,key,q.mask);
+        const std::string symbols=",.;:!?()[]/\\<>_";
+        const std::wstring chinese=L"，。；：！？（）【】、\\《》—";
+        auto pos=key>=32&&key<=126?symbols.find((char)key):std::string::npos;
+        if(pos!=std::string::npos) {
+          punctuation=(options_&OptAsciiPunct)?std::wstring(1,(wchar_t)key):std::wstring(1,chinese[pos]);
+          if(input && *input){
+            if(!order.empty())api_->process_key(id,'1'+order[0],0);
+            else api_->commit_composition(id);
+          }
+          r.eaten=1;
+        }else r.eaten=api_->process_key(id,key,q.mask);
       }
     }
     RIME_STRUCT(RimeCommit,c);
@@ -93,6 +142,7 @@ Response Engine::handle(const Request& q) {
         if(words_.size()<4096 || words_.count(word)){auto& count=words_[word];count=std::min<uint64_t>(count+1,1000000);try{saveWords();storageError_=false;}catch(...){storageError_=true;}}
       }
     }
+    if(!punctuation.empty())copyText(r.commit,std::wstring(r.commit)+punctuation);
     RIME_STRUCT(RimeContext,cx);
     if(api_->get_context(id,&cx)) {
       copyText(r.preedit,wide(cx.composition.preedit));
@@ -107,5 +157,5 @@ Response Engine::handle(const Request& q) {
       api_->free_context(&cx);
     }
   }
-  r.learning=learning_; r.font=font_; r.storageError=storageError_;r.ok=1; return r;
+  r.learning=learning_; r.font=font_; r.options=options_;r.fuzzy=fuzzy_;r.storageError=storageError_;r.ok=1; return r;
 }

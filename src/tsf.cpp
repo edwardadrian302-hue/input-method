@@ -8,12 +8,13 @@ extern "C" const GUID GUID_PROP_INPUTSCOPE={0x1713dd5a,0x68e7,0x4a5b,{0x9a,0xf6,
 extern "C" const IID IID_ITfInputScope={0xfde1eaee,0x6924,0x4cdf,{0x91,0xe7,0xda,0x38,0xcf,0xf5,0x55,0x9d}};
 
 // Stable identity: never reuse a third-party IME's registration.
-static const CLSID CLSID_JianPin={0x3719c10e,0x98bf,0x4b9e,{0xa4,0xf2,0xd3,0xce,0xbc,0x8f,0xb6,0x92}};
-static const GUID PROFILE_JianPin={0x3a63f58a,0xb3f1,0x41d3,{0x8c,0xc8,0x50,0xbd,0xf7,0x1a,0x04,0x18}};
+static const CLSID CLSID_ChaoxiPinyin={0x3719c10e,0x98bf,0x4b9e,{0xa4,0xf2,0xd3,0xce,0xbc,0x8f,0xb6,0x92}};
+static const GUID PROFILE_ChaoxiPinyin={0x3a63f58a,0xb3f1,0x41d3,{0x8c,0xc8,0x50,0xbd,0xf7,0x1a,0x04,0x18}};
 static HMODULE instance;
 static std::atomic<long> objects{0};
 static std::atomic<uint32_t> ids{1};
 static constexpr LANGID language=0x0804;
+#include "language_bar.hpp"
 class Service;
 class Edit final:public ITfEditSession {
   LONG refs_=1; Service* owner_; ITfContext* context_; ITfComposition* target_=nullptr; int key_,mask_; bool cancel_,probe_;
@@ -32,6 +33,7 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
   ITfComposition* composition_=nullptr; ITfContext* composingContext_=nullptr;
   DWORD editSink_=TF_INVALID_COOKIE;
   HWND popup_=nullptr; CandidatePanel panel_; Response view_;
+  ITfLangBarItemMgr* bar_=nullptr;ModeButton* mode_=nullptr;
   bool english_=false,shiftOnly_=false; uint32_t id_=ids++;
   ULONGLONG lastLaunch_=0;
   friend class Edit;
@@ -54,9 +56,9 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
   void show(ITfContext* ctx,TfEditCookie cookie) {
     if(!*view_.preedit) { if(popup_) ShowWindow(popup_,SW_HIDE); return; }
     if(!popup_) {
-      WNDCLASSW wc={}; wc.style=CS_DROPSHADOW; wc.lpfnWndProc=WindowProc; wc.hInstance=instance; wc.lpszClassName=L"JianPin.Candidate.v1";
+      WNDCLASSW wc={}; wc.style=CS_DROPSHADOW; wc.lpfnWndProc=WindowProc; wc.hInstance=instance; wc.lpszClassName=L"ChaoxiPinyin.Candidate.v1";
       RegisterClassW(&wc);
-      popup_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,wc.lpszClassName,L"简拼",WS_POPUP,0,0,1,1,nullptr,nullptr,instance,this);
+      popup_=CreateWindowExW(WS_EX_TOPMOST|WS_EX_NOACTIVATE|WS_EX_TOOLWINDOW,wc.lpszClassName,L"潮汐拼音",WS_POPUP,0,0,1,1,nullptr,nullptr,instance,this);
     }
     ITfContextView* cv=nullptr; RECT anchor={}; BOOL clipped=FALSE; bool located=false;
     if(SUCCEEDED(ctx->GetActiveView(&cv))) {
@@ -113,12 +115,20 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
   }
   bool wants(ITfContext* ctx,WPARAM vk,LPARAM lp) {
     if(disabled(ctx))return false;
-    if(vk==VK_SHIFT)return true;
     if(GetKeyState(VK_CONTROL)&0x8000 || GetKeyState(VK_MENU)&0x8000 || GetKeyState(VK_LWIN)&0x8000 || GetKeyState(VK_RWIN)&0x8000)return false;
+    if(vk==VK_SHIFT)return true;
     if(english_ || (GetKeyState(VK_CAPITAL)&1))return false;
     int key=translate(vk,lp);
     if(*view_.preedit)return key!=0;
-    return (key>='a' && key<='z') || (key>='A' && key<='Z') || (key && std::string(",.!?:;\"'()[]").find((char)key)!=std::string::npos);
+    return (key>='a' && key<='z') || (key>='A' && key<='Z') || (key && std::string(",.!?:;\"'()[]/\\<>_").find((char)key)!=std::string::npos);
+  }
+  void toggleMode() {
+    if(composingContext_ && *view_.preedit){
+      auto edit=new Edit(this,composingContext_,' ',0);HRESULT result=E_FAIL;
+      auto hr=composingContext_->RequestEditSession(client_,edit,TF_ES_SYNC|TF_ES_READWRITE,&result);
+      bool ok=SUCCEEDED(hr)&&SUCCEEDED(result)&&edit->eaten;edit->Release();if(!ok)return;
+    }
+    english_=!english_;if(mode_){mode_->english=english_;mode_->update();}
   }
 public:
   Service(){++objects;}
@@ -143,9 +153,16 @@ public:
     ITfSource* source=nullptr;
     if(SUCCEEDED(m->QueryInterface(IID_ITfSource,(void**)&source))){hr=source->AdviseSink(IID_ITfThreadMgrEventSink,static_cast<ITfThreadMgrEventSink*>(this),&sink_);source->Release();}
     if(FAILED(hr)){Deactivate();return hr;}
+    if(SUCCEEDED(m->QueryInterface(IID_ITfLangBarItemMgr,(void**)&bar_))){
+      mode_=new ModeButton;mode_->toggle=[this]{toggleMode();};
+      mode_->settings=[] { auto exe=moduleDir(instance)/L"ChaoxiPinyinSettings.exe";ShellExecuteW(nullptr,L"open",exe.c_str(),nullptr,exe.parent_path().c_str(),SW_SHOWNORMAL); };
+      if(FAILED(bar_->AddItem(mode_))){mode_->detach();mode_->Release();mode_=nullptr;bar_->Release();bar_=nullptr;}
+    }
     launchBroker(moduleDir(instance));lastLaunch_=GetTickCount64();return S_OK;
   }
   HRESULT STDMETHODCALLTYPE Deactivate() override {
+    if(mode_){mode_->detach();if(bar_)bar_->RemoveItem(mode_);mode_->Release();mode_=nullptr;}
+    if(bar_){bar_->Release();bar_=nullptr;}
     if(!manager_)return S_OK;
     // End composition synchronously where possible, never retain a browser context after deactivation.
     if(composingContext_ && refs_>0) { auto e=new Edit(this,composingContext_,0,0,true);HRESULT hr;composingContext_->RequestEditSession(client_,e,TF_ES_SYNC|TF_ES_READWRITE,&hr);e->Release(); }
@@ -157,7 +174,7 @@ public:
     Request q;q.op=Op::Destroy;q.client=id_;Response r;exchange(q,r);
     if(popup_){DestroyWindow(popup_);popup_=nullptr;}return S_OK;
   }
-  HRESULT STDMETHODCALLTYPE OnSetFocus(BOOL foreground) override{if(!foreground)cancel();return S_OK;}
+  HRESULT STDMETHODCALLTYPE OnSetFocus(BOOL foreground) override{if(!foreground){shiftOnly_=false;cancel();}return S_OK;}
   HRESULT STDMETHODCALLTYPE OnTestKeyDown(ITfContext* ctx,WPARAM vk,LPARAM lp,BOOL* eaten) override {
     if(vk!=VK_SHIFT)shiftOnly_=false;
     *eaten=wants(ctx,vk,lp);
@@ -166,7 +183,7 @@ public:
   }
   HRESULT STDMETHODCALLTYPE OnKeyDown(ITfContext* ctx,WPARAM vk,LPARAM lp,BOOL* eaten) override {
     *eaten=FALSE;
-    if(vk==VK_SHIFT){shiftOnly_=!(GetKeyState(VK_CONTROL)&0x8000)&&!(GetKeyState(VK_MENU)&0x8000);return S_OK;}
+    if(vk==VK_SHIFT){shiftOnly_=wants(ctx,vk,lp);*eaten=shiftOnly_;return S_OK;}
     shiftOnly_=false;
     if(!wants(ctx,vk,lp)){if(*view_.preedit)cancel();return S_OK;}
     auto edit=new Edit(this,ctx,translate(vk,lp),0);HRESULT result=E_FAIL;
@@ -174,7 +191,7 @@ public:
     *eaten=SUCCEEDED(hr)&&SUCCEEDED(result)&&edit->eaten;edit->Release();return S_OK;
   }
   HRESULT STDMETHODCALLTYPE OnTestKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=vk==VK_SHIFT&&shiftOnly_;return S_OK;}
-  HRESULT STDMETHODCALLTYPE OnKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=FALSE;if(vk==VK_SHIFT&&shiftOnly_){cancel();english_=!english_;shiftOnly_=false;*eaten=TRUE;}return S_OK;}
+  HRESULT STDMETHODCALLTYPE OnKeyUp(ITfContext*,WPARAM vk,LPARAM,BOOL* eaten) override{*eaten=FALSE;if(vk==VK_SHIFT&&shiftOnly_){toggleMode();shiftOnly_=false;*eaten=TRUE;}return S_OK;}
   HRESULT STDMETHODCALLTYPE OnPreservedKey(ITfContext*,REFGUID,BOOL* eaten) override{*eaten=FALSE;return S_OK;}
   HRESULT STDMETHODCALLTYPE OnInitDocumentMgr(ITfDocumentMgr*) override{return S_OK;}
   HRESULT STDMETHODCALLTYPE OnUninitDocumentMgr(ITfDocumentMgr*) override{return S_OK;}
@@ -225,7 +242,11 @@ HRESULT Edit::DoEditSession(TfEditCookie cookie) {
     }
     if(!*text)return S_OK;
     ITfInsertAtSelection* insert=nullptr;HRESULT hr=context_->QueryInterface(IID_ITfInsertAtSelection,(void**)&insert);
-    if(SUCCEEDED(hr)){hr=insert->InsertTextAtSelection(cookie,TF_IAS_NOQUERY,text,(LONG)wcslen(text),nullptr);insert->Release();}return hr;
+    if(SUCCEEDED(hr)){
+      ITfRange* range=nullptr;hr=insert->InsertTextAtSelection(cookie,0,text,(LONG)wcslen(text),&range);insert->Release();
+      if(SUCCEEDED(hr)&&range){range->Collapse(cookie,TF_ANCHOR_END);TF_SELECTION sel={range,{TF_AE_NONE,FALSE}};hr=context_->SetSelection(cookie,1,&sel);}
+      if(range)range->Release();
+    }return hr;
   };
   if(*next.commit){HRESULT hr=finish(next.commit);if(FAILED(hr))return hr;}
   if(*next.preedit){
@@ -257,12 +278,12 @@ public:
 };
 extern "C" BOOL WINAPI DllMain(HINSTANCE h,DWORD reason,LPVOID){if(reason==DLL_PROCESS_ATTACH){instance=h;DisableThreadLibraryCalls(h);}return TRUE;}
 extern "C" HRESULT __stdcall DllCanUnloadNow(){return objects==0?S_OK:S_FALSE;}
-extern "C" HRESULT __stdcall DllGetClassObject(REFCLSID c,REFIID i,void** p){if(c!=CLSID_JianPin)return CLASS_E_CLASSNOTAVAILABLE;auto f=new Factory;HRESULT hr=f->QueryInterface(i,p);f->Release();return hr;}
-static std::wstring clsidKey(){wchar_t text[40];StringFromGUID2(CLSID_JianPin,text,40);return std::wstring(L"Software\\Classes\\CLSID\\")+text;}
+extern "C" HRESULT __stdcall DllGetClassObject(REFCLSID c,REFIID i,void** p){if(c!=CLSID_ChaoxiPinyin)return CLASS_E_CLASSNOTAVAILABLE;auto f=new Factory;HRESULT hr=f->QueryInterface(i,p);f->Release();return hr;}
+static std::wstring clsidKey(){wchar_t text[40];StringFromGUID2(CLSID_ChaoxiPinyin,text,40);return std::wstring(L"Software\\Classes\\CLSID\\")+text;}
 extern "C" HRESULT __stdcall DllUnregisterServer(){
   HRESULT init=CoInitializeEx(nullptr,COINIT_APARTMENTTHREADED);ITfInputProcessorProfiles* p=nullptr;
-  if(SUCCEEDED(CoCreateInstance(CLSID_TF_InputProcessorProfiles,nullptr,CLSCTX_INPROC_SERVER,IID_ITfInputProcessorProfiles,(void**)&p))){p->RemoveLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin);p->Unregister(CLSID_JianPin);p->Release();}
-  ITfCategoryMgr* c=nullptr;if(SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr,nullptr,CLSCTX_INPROC_SERVER,IID_ITfCategoryMgr,(void**)&c))){for(const GUID* g:{&GUID_TFCAT_TIP_KEYBOARD,&GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT})c->UnregisterCategory(CLSID_JianPin,*g,CLSID_JianPin);c->Release();}
+  if(SUCCEEDED(CoCreateInstance(CLSID_TF_InputProcessorProfiles,nullptr,CLSCTX_INPROC_SERVER,IID_ITfInputProcessorProfiles,(void**)&p))){p->RemoveLanguageProfile(CLSID_ChaoxiPinyin,language,PROFILE_ChaoxiPinyin);p->Unregister(CLSID_ChaoxiPinyin);p->Release();}
+  ITfCategoryMgr* c=nullptr;if(SUCCEEDED(CoCreateInstance(CLSID_TF_CategoryMgr,nullptr,CLSCTX_INPROC_SERVER,IID_ITfCategoryMgr,(void**)&c))){for(const GUID* g:{&GUID_TFCAT_TIP_KEYBOARD,&GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT})c->UnregisterCategory(CLSID_ChaoxiPinyin,*g,CLSID_ChaoxiPinyin);c->Release();}
   auto result=RegDeleteTreeW(HKEY_LOCAL_MACHINE,clsidKey().c_str());if(SUCCEEDED(init))CoUninitialize();return result==ERROR_SUCCESS||result==ERROR_FILE_NOT_FOUND?S_OK:HRESULT_FROM_WIN32(result);
 }
 extern "C" HRESULT __stdcall DllRegisterServer(){
@@ -271,8 +292,8 @@ extern "C" HRESULT __stdcall DllRegisterServer(){
   if(code!=ERROR_SUCCESS){if(SUCCEEDED(init))CoUninitialize();return HRESULT_FROM_WIN32(code);}
   RegSetValueExW(key,nullptr,0,REG_SZ,(BYTE*)path,(DWORD)((wcslen(path)+1)*2));RegSetValueExW(key,L"ThreadingModel",0,REG_SZ,(const BYTE*)L"Apartment",20);RegCloseKey(key);
   ITfInputProcessorProfiles* p=nullptr;HRESULT hr=CoCreateInstance(CLSID_TF_InputProcessorProfiles,nullptr,CLSCTX_INPROC_SERVER,IID_ITfInputProcessorProfiles,(void**)&p);
-  if(SUCCEEDED(hr)){hr=p->Register(CLSID_JianPin);if(SUCCEEDED(hr)){const wchar_t* name=L"简拼 · 离线拼音";hr=p->AddLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,name,(ULONG)wcslen(name),path,(ULONG)wcslen(path),0);}if(SUCCEEDED(hr))hr=p->EnableLanguageProfile(CLSID_JianPin,language,PROFILE_JianPin,TRUE);p->Release();}
+  if(SUCCEEDED(hr)){hr=p->Register(CLSID_ChaoxiPinyin);if(SUCCEEDED(hr)){const wchar_t* name=L"潮汐拼音 · 离线拼音";hr=p->AddLanguageProfile(CLSID_ChaoxiPinyin,language,PROFILE_ChaoxiPinyin,name,(ULONG)wcslen(name),path,(ULONG)wcslen(path),0);}if(SUCCEEDED(hr))hr=p->EnableLanguageProfile(CLSID_ChaoxiPinyin,language,PROFILE_ChaoxiPinyin,TRUE);p->Release();}
   ITfCategoryMgr* c=nullptr;if(SUCCEEDED(hr))hr=CoCreateInstance(CLSID_TF_CategoryMgr,nullptr,CLSCTX_INPROC_SERVER,IID_ITfCategoryMgr,(void**)&c);
-  if(c){for(const GUID* g:{&GUID_TFCAT_TIP_KEYBOARD,&GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT}){if(SUCCEEDED(hr))hr=c->RegisterCategory(CLSID_JianPin,*g,CLSID_JianPin);}c->Release();}
+  if(c){for(const GUID* g:{&GUID_TFCAT_TIP_KEYBOARD,&GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT}){if(SUCCEEDED(hr))hr=c->RegisterCategory(CLSID_ChaoxiPinyin,*g,CLSID_ChaoxiPinyin);}c->Release();}
   if(FAILED(hr))DllUnregisterServer();if(SUCCEEDED(init))CoUninitialize();return hr;
 }

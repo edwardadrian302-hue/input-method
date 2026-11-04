@@ -4,7 +4,15 @@ $root = Split-Path $PSScriptRoot -Parent
 Set-Location $root
 $compiler = Join-Path $root '.tools\llvm-mingw-20261020-ucrt-x86_64\bin\x86_64-w64-mingw32-clang++.exe'
 if (!(Test-Path $compiler)) { throw 'Portable compiler missing. See docs/BUILD.md.' }
-New-Item -ItemType Directory -Force dist,build | Out-Null
+# dist is a generated staging directory; recreate it to prevent stale binaries/data.
+$stage = [IO.Path]::GetFullPath((Join-Path $root 'dist'))
+if ($stage -cne ($root.TrimEnd('\') + '\dist')) { throw 'Unexpected staging path.' }
+if (Test-Path -LiteralPath $stage) {
+  $items = @((Get-Item -LiteralPath $stage -Force)) + @(Get-ChildItem -LiteralPath $stage -Force -Recurse)
+  foreach ($item in $items) { if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing linked staging directory.' } }
+  Remove-Item -LiteralPath $stage -Recurse -Force
+}
+New-Item -ItemType Directory -Force dist,build,build/tests | Out-Null
 New-Item -ItemType Directory -Force build/tmp | Out-Null
 $env:TEMP = Join-Path $root 'build\tmp'
 $env:TMP = $env:TEMP
@@ -14,22 +22,24 @@ function Compile($sources,$output,$extra=@()) {
   & $compiler @common @sources @extra @libs '-o' $output
   if ($LASTEXITCODE -ne 0) { throw "Build failed: $output" }
 }
-Compile @('src/engine.cpp','src/broker.cpp') 'dist/JianPinBroker.exe'
-Compile @('src/settings.cpp') 'dist/JianPinSettings.exe' @('-mwindows')
-Compile @('src/tsf.cpp','src/tsf.def') 'dist/JianPin.dll' @('-shared','-Wl,--kill-at')
-Compile @('src/engine.cpp','tests/engine_test.cpp') 'dist/EngineTest.exe'
-Compile @('tests/tsf_test.cpp') 'dist/TsfTest.exe'
+$resourceCompiler = Join-Path (Split-Path $compiler -Parent) 'x86_64-w64-mingw32-windres.exe'
+& $resourceCompiler src/app.rc -O coff -o build/app-icon.o
+if ($LASTEXITCODE -ne 0) { throw 'Icon resource compilation failed.' }
+Compile @('src/engine.cpp','src/broker.cpp','build/app-icon.o') 'dist/ChaoxiPinyinBroker.exe'
+Compile @('src/settings.cpp','build/app-icon.o') 'dist/ChaoxiPinyinSettings.exe' @('-mwindows')
+Compile @('src/tsf.cpp','src/tsf.def','build/app-icon.o') 'dist/ChaoxiPinyin.dll' @('-shared','-Wl,--kill-at')
+Compile @('src/engine.cpp','tests/engine_test.cpp') 'build/tests/EngineTest.exe'
+Compile @('tests/tsf_test.cpp') 'build/tests/TsfTest.exe'
 Compile @('tests/candidate_preview.cpp') 'build/CandidatePreview.exe'
 Copy-Item '.tools/rime/dist/lib/rime.dll' 'dist/rime.dll' -Force
 Copy-Item data dist -Recurse -Force
 Copy-Item licenses dist -Recurse -Force
 Copy-Item scripts/install.ps1,scripts/uninstall.ps1 dist -Force
-Copy-Item README.md,THIRD_PARTY.md,sources.lock.json,downloads.lock.json dist -Force
-Copy-Item docs dist -Recurse -Force
+Copy-Item README.md,THIRD_PARTY.md dist -Force
 if (!$SkipTests) {
-  & 'dist/EngineTest.exe'
+  & 'build/tests/EngineTest.exe'
   if ($LASTEXITCODE -ne 0) { throw 'Engine integration tests failed.' }
-  & 'dist/TsfTest.exe'
+  & 'build/tests/TsfTest.exe'
   if ($LASTEXITCODE -ne 0) { throw 'TSF integration tests failed.' }
 }
 Write-Host 'Build completed: dist/'

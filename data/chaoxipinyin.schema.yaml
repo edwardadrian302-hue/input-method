@@ -1,8 +1,8 @@
-# JianPin: offline full pinyin using pinyin_simp; no Rime user dictionary.
+# ChaoxiPinyin: offline full pinyin using pinned rime-ice dictionaries; no Rime user dictionary.
 schema:
-  schema_id: jianpin
-  name: 简拼 · 全拼
-  version: "0.2.0"
+  schema_id: chaoxipinyin
+  name: 潮汐拼音 · 全拼
+  version: "0.3.0"
 switches:
   - name: ascii_mode
     reset: 0
@@ -23,11 +23,12 @@ speller:
     - derive/^([nl])ue$/$1ve/
     - derive/^([jqxy])u/$1v/
 translator:
-  dictionary: pinyin_simp
-  prism: jianpin
+  dictionary: chaoxi
+  prism: chaoxipinyin
   enable_user_dict: false
   enable_sentence: true
   enable_completion: true
+  enable_word_completion: false
   contextual_suggestions: false
 key_binder:
   bindings:

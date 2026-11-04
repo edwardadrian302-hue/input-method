@@ -12,7 +12,8 @@ class Engine {
   std::map<std::wstring,uint64_t> words_;
   bool learning_=true;
   bool storageError_=false;
-  int font_=18;
+  int font_=12,options_=OptCompletion,fuzzy_=0;
+  void configureSchema();
   void start();
   void stop();
   void save();
