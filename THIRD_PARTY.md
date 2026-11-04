@@ -4,7 +4,7 @@
 
 | 组件 | 用途 | 许可 |
 |---|---|---|
-| librime 1.17.0 | 离线拼音转换引擎，采用官方 Windows MSVC x64 预编译运行库 | BSD-3-Clause，见 `licenses/librime-BSD.txt` |
+| librime 1.17.0 | 拼音转换引擎，采用官方 Windows MSVC x64 预编译运行库 | BSD-3-Clause，见 `licenses/librime-BSD.txt` |
 | iDvel/rime-ice | 中文常用字、基础与扩展词库 | GPL-3.0，见 `licenses/rime-ice-GPL3.txt` |
 | Inno Setup 6.7.4 | Windows 安装与卸载运行时 | 见 `licenses/inno-setup.txt` |
 
@@ -15,3 +15,5 @@ librime 核心源码来源：https://github.com/rime/librime 。运行库采用�
 安装向导的简体中文消息取自 Inno Setup 同版本官方源码仓库中的社区翻译；作者信息保留于源码仓库的 `scripts/ChineseSimplified.isl`。Inno Setup 的版权与网站信息保留于安装/卸载运行时。
 
 LLVM-MinGW 仅用于开发构建，不随软件分发。开发依赖、下载校验与源码版本记录保存在源码仓库的锁文件中。潮汐图标为本项目自有资产。
+
+可选新词下载来源：[iDvel/rime-ice main/cn_dicts/ext.dict.yaml](https://github.com/iDvel/rime-ice/blob/main/cn_dicts/ext.dict.yaml)，沿用该词库 GPL-3.0 许可；内置词库仍固定上述 commit，下载操作不覆盖内置文件。

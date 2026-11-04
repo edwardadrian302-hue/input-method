@@ -9,4 +9,4 @@ foreach ($file in $lock.files) {
   if (!(Test-Path -LiteralPath $path)) { Invoke-WebRequest -UseBasicParsing -Uri ("https://raw.githubusercontent.com/iDvel/rime-ice/" + $lock.commit + '/' + $file.path) -OutFile $path }
   if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLower() -ne $file.sha256) { throw ('词库校验失败：' + $file.path) }
 }
-Write-Host '固定版本词库已准备；运行 python scripts/prepare_data.py 生成离线数据。'
+Write-Host '固定版本词库已准备；运行 python scripts/prepare_data.py 生成词库数据。'

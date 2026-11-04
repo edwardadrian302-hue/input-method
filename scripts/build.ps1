@@ -26,20 +26,26 @@ $resourceCompiler = Join-Path (Split-Path $compiler -Parent) 'x86_64-w64-mingw32
 & $resourceCompiler src/app.rc -O coff -o build/app-icon.o
 if ($LASTEXITCODE -ne 0) { throw 'Icon resource compilation failed.' }
 Compile @('src/engine.cpp','src/broker.cpp','build/app-icon.o') 'dist/ChaoxiPinyinBroker.exe'
-Compile @('src/settings.cpp','build/app-icon.o') 'dist/ChaoxiPinyinSettings.exe' @('-mwindows')
+Compile @('src/settings.cpp','build/app-icon.o') 'dist/ChaoxiPinyinSettings.exe' @('-mwindows','-lcomdlg32','-lwinhttp')
 Compile @('src/tsf.cpp','src/tsf.def','build/app-icon.o') 'dist/ChaoxiPinyin.dll' @('-shared','-Wl,--kill-at')
 Compile @('src/engine.cpp','tests/engine_test.cpp') 'build/tests/EngineTest.exe'
 Compile @('tests/tsf_test.cpp') 'build/tests/TsfTest.exe'
+Compile @('tests/dictionary_test.cpp') 'build/tests/DictionaryTest.exe' @('-lwinhttp')
 Compile @('tests/candidate_preview.cpp') 'build/CandidatePreview.exe'
+Compile @('tests/settings_preview.cpp','build/app-icon.o') 'build/tests/SettingsPreview.exe' @('-lcomdlg32','-lwinhttp')
 Copy-Item '.tools/rime/dist/lib/rime.dll' 'dist/rime.dll' -Force
 Copy-Item data dist -Recurse -Force
 Copy-Item licenses dist -Recurse -Force
 Copy-Item scripts/install.ps1,scripts/uninstall.ps1 dist -Force
 Copy-Item README.md,THIRD_PARTY.md dist -Force
 if (!$SkipTests) {
+  & 'build/tests/DictionaryTest.exe'
+  if ($LASTEXITCODE -ne 0) { throw 'Dictionary tests failed.' }
   & 'build/tests/EngineTest.exe'
   if ($LASTEXITCODE -ne 0) { throw 'Engine integration tests failed.' }
   & 'build/tests/TsfTest.exe'
   if ($LASTEXITCODE -ne 0) { throw 'TSF integration tests failed.' }
+  & 'build/tests/SettingsPreview.exe'
+  if ($LASTEXITCODE -ne 0) { throw 'Settings rendering failed.' }
 }
 Write-Host 'Build completed: dist/'

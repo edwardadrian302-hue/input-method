@@ -107,6 +107,19 @@ int wmain(){
     check(SUCCEEDED(button->OnClick(2,{0,0},nullptr)),"click toggles mode");button->Release();
     tooltip=nullptr;item->GetTooltipString(&tooltip);bool chineseTooltip=tooltip&&std::wstring(tooltip).find(L"中文")!=std::wstring::npos;SysFreeString(tooltip);item->Release();check(chineseTooltip,"click updates Chinese state");
     eaten=FALSE;keys->OnTestKeyDown(ctx,'A',0,&eaten);check(eaten,"click restores Chinese key handling");
+    q=Request{};q.op=Op::PhrasePut;copyText(q.code,L"zhong guo ce shi hou zhui");copyText(q.text,L"中国测试后缀");check(exchange(q,r),"add isolated prediction fixture");
+    q=Request{};q.op=Op::Configure;q.value=OptCompletion|OptLearning|OptPrediction;q.key=12;check(exchange(q,r),"enable offline prediction");
+    auto beforePrediction=store->text;
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);
+    check(store->text==beforePrediction+L"中国","prediction header never enters the text store");
+    key('1');check(store->text==beforePrediction+L"中国测试后缀","prediction commits only suffix in a fresh TSF insertion");
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);auto afterChina=store->text;key(VK_ESCAPE);
+    check(store->text==afterChina,"Escape on prediction preserves already committed text");
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);afterChina=store->text;
+    keys->OnSetFocus(FALSE);keys->OnSetFocus(TRUE);pump();eaten=TRUE;keys->OnTestKeyDown(ctx,'1',0,&eaten);check(!eaten&&store->text==afterChina,"focus changes dismiss predictions without consuming digits");
+    for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);afterChina=store->text;
+    keys->OnKeyDown(ctx,VK_SHIFT,0,&shift);keys->OnKeyUp(ctx,VK_SHIFT,0,&shift);pump();
+    check(store->text==afterChina,"mode switch dismisses prediction without accepting a suffix");
     std::cout<<"PASS: TSF composition/commit/cancel/focus/disabled context/English mode, punctuation, Shift commit, language bar state and 100 IPC requests (keyboard and language-bar subscriptions mocked).\n";result=0;
   }catch(const std::exception& e){std::cerr<<"FAIL TSF: "<<e.what()<<"\n";result=1;}
   if(testBar)testBar->Release();if(keys)keys->Release();if(active)tip->Deactivate();if(tip)tip->Release();if(doc)doc->Pop(TF_POPF_ALL);if(ctx)ctx->Release();if(doc)doc->Release();if(store)store->Release();if(mgr){mgr->Deactivate();mgr->Release();}pump();

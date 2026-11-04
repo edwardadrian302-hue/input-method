@@ -2,14 +2,14 @@
 [Setup]
 AppId={{3719C10E-98BF-4B9E-A4F2-D3CEBC8FB692}
 AppName=潮汐拼音
-AppVersion=0.3.0-preview
+AppVersion=0.5.0-preview
 AppPublisher=潮汐拼音
 DefaultDirName=D:\ChaoxiPinyin
 DefaultGroupName=潮汐拼音
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir=..\build
-OutputBaseFilename=ChaoxiPinyin-0.3.0-preview-win-x64-Setup
+OutputBaseFilename=ChaoxiPinyin-0.5.0-preview-win-x64-Setup
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0
@@ -20,7 +20,7 @@ Compression=lzma2
 SolidCompression=yes
 CloseApplications=no
 RestartApplications=no
-UninstallDisplayName=潮汐拼音 ChaoxiPinyin（离线全拼）
+UninstallDisplayName=潮汐拼音 ChaoxiPinyin
 UninstallDisplayIcon={app}\ChaoxiPinyinSettings.exe
 SetupLogging=yes
 
@@ -109,13 +109,13 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
-    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.3.0', False);
+    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.5.0', False);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
   if CurPageID = wpFinished then
-    WizardForm.FinishedLabel.Caption := '潮汐拼音已安装。按 Win + 空格选择“潮汐拼音 · 离线拼音”，即可开始使用。';
+    WizardForm.FinishedLabel.Caption := '潮汐拼音已安装。按 Win + 空格选择“潮汐拼音”，即可开始使用。';
 end;
 
 function InitializeUninstall(): Boolean;

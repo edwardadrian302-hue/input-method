@@ -1,6 +1,8 @@
 #pragma once
 #include "common.hpp"
 #include "rime_api.h"
+#include "lexicon.hpp"
+#include "dictionary_import.hpp"
 #include <map>
 class Engine {
   HMODULE dll_=nullptr;
@@ -8,16 +10,20 @@ class Engine {
   fs::path root_,home_;
   std::string shared_,user_,staging_;
   std::map<uint64_t,RimeSessionId> sessions_;
-  std::map<uint64_t,std::vector<int>> order_;
-  std::map<std::wstring,uint64_t> words_;
-  bool learning_=true;
+  struct Choice {int index;std::wstring text;};
+  std::map<uint64_t,std::vector<Choice>> choices_;
+  std::map<uint64_t,std::vector<std::wstring>> predictions_;
+  struct Paging {int page=0,pages=1,rimePage=0;};
+  std::map<uint64_t,Paging> paging_;
+  Profile profile_;Lexicon lexicon_;
+  DictionaryImport pendingImport_;uint64_t importOwner_=0,importTime_=0;
   bool storageError_=false;
-  int font_=12,options_=OptCompletion,fuzzy_=0;
   void configureSchema();
   void start();
   void stop();
   void save();
-  void saveWords();
+  void resetSessions();
+  void predict(uint64_t,const std::wstring&,Response&);
   RimeSessionId session(uint64_t);
 public:
   Engine(const fs::path& root,const fs::path& home);

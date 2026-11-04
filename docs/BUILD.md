@@ -15,7 +15,7 @@
 - `ChaoxiPinyin.dll`：64 位 Windows TSF 输入法。
 - `ChaoxiPinyinBroker.exe`：单用户本地引擎进程。
 - `ChaoxiPinyinSettings.exe`：原生设置界面。
-- `rime.dll`、`data`：运行库和离线词库。
+- `rime.dll`、`data`：运行库和词库。
 - `build/tests/EngineTest.exe`、`build/tests/TsfTest.exe`：开发测试，不放入 dist 或用户安装包。
 
 先构建验证，再运行管理员安装脚本。系统注册需要管理员权限，构建不需要。
@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File scripts/prepare-installer.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
 ```
 
-第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.3.0-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
+第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.5.0-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
 
 安装脚本是 `scripts/installer.iss`，可修改版本、默认目录和安装内容。安装器包含注册和反注册、目录选择、开始菜单入口以及系统卸载项，安装时没有下载步骤。安装器自带程序清单要求管理员权限。不会更改默认输入法或强制关闭浏览器；被占用 DLL 卸载时可能延迟至重启删除。旧脚本版升级使用原目录；EXE 版变更目录需先卸载。可继续运行 `scripts/package.ps1` 生成 ZIP 备用包。
 
@@ -39,16 +39,20 @@ TSF 测试会设置仅对该测试进程和子进程生效的随机数值测试�
 
 Inno Setup 的使用和再分发条件见官方工具附带许可证，商业使用须核对其商业授权要求。项目安装包仍是未签名的开发预览版。
 
-## 0.3.0 词库与界面
+## 0.5.0 词库与界面
 
 仓库 `data/cn_dicts` 已包含固定版本的雾凇常用字、基础和扩展词库，原始头部与许可保留。重新生成时先运行 `scripts/prepare-dictionary.ps1` 准备 `vendor/rime-ice`（固定 commit 与 SHA-256），再运行 `python scripts/prepare_data.py`；生成器验证全部词库哈希，包装为只含中文词表的 `chaoxi.dict.yaml`，不引入上游英文、Lua、自动更新或云服务。词库锁为 `dictionary.lock.json`，不由引擎运行时下载。
 
 `src/settings.cpp` 是原生可视化设置界面，支持即时字号预览，应用动作在后台线程中等待本地引擎。`assets/chaoxi.svg` / `chaoxi.ico` 是项目自有潮汐图标，资源通过同一 D 盘工具链 windres 编译到 DLL 和 EXE。源代码与词库许可证见 THIRD_PARTY.md。
 
-命名空间环境变量为 `CHAOXI_TEST_INSTANCE`。测试不连接已安装输入法的管道，不读取其用户词频。协议和用户目录已更名，早期版本数据不自动迁移。
+命名空间环境变量为 `CHAOXI_TEST_INSTANCE`。测试不连接已安装输入法的管道，不读取其用户词频。协议使用 v5 命名；只迁移同一 ChaoxiPinyin 根目录中的 0.3 设置与词频，不读取更早 JianPin 目录。
 
 ## 发布目录规则
 
 每次构建会检查 `dist` 为项目中的普通目录，然后重新生成，避免混入历史二进制、旧词典或测试程序。运行时文件只含潮汐拼音主程序、引擎、词库、许可、用户说明与脚本安装/卸载工具。测试程序位于 `build/tests`，验证记录和构建依赖锁文件只保存在源码仓库。EXE 采用同一批运行文件，不附带脚本安装工具，也不显示额外的安装前说明页。
 
 Rime 方案、prism、custom 配置统一命名为 `chaoxipinyin`；安装标记为 `chaoxipinyin-install.marker`。TSF CLSID、语言配置 GUID 与安装器 AppId 是稳定的产品身份，保持不变。已注册在原目录的 EXE 安装允许原位升级；其他非空目录必须有当前安装标记。删除过时产物不涉及用户已安装的程序或学习数据。
+
+`build/tests/SettingsPreview.exe` 使用隐藏窗口中的实际控件位置、文字与字号绘制布局示意图，输出 `build/settings-preview.bmp` 和 `build/phrases-preview.bmp`，不显示窗口、不启动 broker。它不代替真实 Windows 控件交互、文件选择对话框或多屏验收。
+
+词库解析测试：`build/tests/DictionaryTest.exe`。显式联网实测：`build/tests/DictionaryTest.exe --online`，只下载公开词库并在 build 写入结果；默认构建测试不联网。设置与该测试链接系统 WinHTTP。

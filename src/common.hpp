@@ -14,7 +14,8 @@
 #include <algorithm>
 #include <cstdint>
 namespace fs = std::filesystem;
-constexpr int OptCompletion=1,OptAsciiPunct=2,OptLearning=4;
+constexpr int OptCompletion=1,OptAsciiPunct=2,OptLearning=4,OptCorrection=8,OptPrediction=16;
+constexpr int StoredOptions=OptCompletion|OptAsciiPunct|OptCorrection|OptPrediction;
 constexpr int FuzzyZ=1,FuzzyC=2,FuzzyS=4,FuzzyNL=8,FuzzyEn=16,FuzzyAn=32,FuzzyIn=64;
 
 inline std::string utf8(const std::wstring& s) {
@@ -54,14 +55,15 @@ inline std::wstring instanceSuffix() {
   std::wstring text(value);if(!std::all_of(text.begin(),text.end(),[](wchar_t c){return (c>=L'0'&&c<=L'9')||c==L'-';}))return {};
   return L".test."+text;
 }
-inline std::wstring pipeName() { return L"\\\\.\\pipe\\ChaoxiPinyin.v3."+userSid()+instanceSuffix(); }
-constexpr uint32_t kMagic=0x43503033;
-enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown,Configure };
-struct Request { uint32_t magic=kMagic; Op op=Op::Status; uint64_t client=0; int32_t key=0,mask=0,value=0; };
+inline std::wstring pipeName() { return L"\\\\.\\pipe\\ChaoxiPinyin.v5."+userSid()+instanceSuffix(); }
+constexpr uint32_t kMagic=0x43503035;
+enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown,Configure,PhraseList,PhrasePut,PhraseDelete,Backup,Restore,ImportPreview,ImportCommit,ImportCancel };
+struct Request { uint32_t magic=kMagic; Op op=Op::Status; uint64_t client=0; int32_t key=0,mask=0,value=0,limit=4; wchar_t text[1024]={},code[128]={},previousWord[64]={},previousCode[128]={}; };
 struct Response {
   uint32_t magic=kMagic; int32_t ok=0,eaten=0,learning=1,font=12,page=0,last=1,count=0,highlight=0;
-  int32_t storageError=0,options=1,fuzzy=0;
-  wchar_t preedit[512]={},commit[1024]={},candidates[9][256]={};
+  int32_t storageError=0,options=1,fuzzy=0,limit=4,prediction=0,phraseCount=0;
+  int32_t importNew=0,importDuplicate=0,importInvalid=0;
+  wchar_t preedit[512]={},commit[1024]={},candidates[9][256]={},codes[9][128]={};
 };
 template<size_t N> inline void copyText(wchar_t (&out)[N],const std::wstring& s) { wcsncpy_s(out,N,s.c_str(),_TRUNCATE); }
 inline bool exchange(const Request& q,Response& r,DWORD timeout=600) {
