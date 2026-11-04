@@ -1,0 +1,14 @@
+{
+  "librime": {
+    "url": "https://github.com/rime/librime.git",
+    "commit": "0e8ee4047f938adc7f1e32e0dfa1f6ab11dac9db"
+  },
+  "double-pinyin": {
+    "url": "https://github.com/rime/rime-double-pinyin.git",
+    "commit": "01a13287cbd27819be1c34fa1ddc1b3643d5001b"
+  },
+  "pinyin-simp": {
+    "url": "https://github.com/rime/rime-pinyin-simp.git",
+    "commit": "0c6861ef7420ee780270ca6d993d18d4101049d0"
+  }
+}

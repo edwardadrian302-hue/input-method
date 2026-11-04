@@ -1,0 +1,77 @@
+# Modified from rime/rime-double-pinyin (GPL-3.0), original author: 佛振.
+# JianPin: Sogou key mapping, simplified dictionary, no Rime learning or plugins.
+schema:
+  schema_id: jianpin
+  name: 简拼 · 搜狗双拼
+  version: "0.1.0"
+switches:
+  - name: ascii_mode
+    reset: 0
+engine:
+  processors: [key_binder, speller, punctuator, selector, navigator, express_editor]
+  segmentors: [abc_segmentor, punct_segmentor, fallback_segmentor]
+  translators: [punct_translator, script_translator]
+  filters: [uniquifier]
+menu:
+  page_size: 9
+speller:
+  alphabet: "zyxwvutsrqponmlkjihgfedcba;"
+  initials: zyxwvutsrqponmlkjihgfedcba
+  delimiter: " '"
+  algebra:
+    - erase/^xx$/
+    - derive/^([jqxy])u$/$1v/
+    - derive/^([aoe].*)$/o$1/
+    - xform/^([ae])(.*)$/$1$1$2/
+    - xform/iu$/Q/
+    - xform/[iu]a$/W/
+    - xform/er$|[uv]an$/R/
+    - xform/[uv]e$/T/
+    - xform/v$|uai$/Y/
+    - xform/^sh/U/
+    - xform/^ch/I/
+    - xform/^zh/V/
+    - xform/uo$/O/
+    - xform/[uv]n$/P/
+    - xform/i?ong$/S/
+    - xform/[iu]ang$/D/
+    - xform/(.)en$/$1F/
+    - xform/(.)eng$/$1G/
+    - xform/(.)ang$/$1H/
+    - xform/ian$/M/
+    - xform/(.)an$/$1J/
+    - xform/iao$/C/
+    - xform/(.)ao$/$1K/
+    - xform/(.)ai$/$1L/
+    - xform/(.)ei$/$1Z/
+    - xform/ie$/X/
+    - xform/ui$/V/
+    - xform/(.)ou$/$1B/
+    - xform/in$/N/
+    - xform/ing$/;/
+    - xlit/QWRTYUIOPSDFGHMJCKLZXVBN/qwrtyuiopsdfghmjcklzxvbn/
+translator:
+  dictionary: pinyin_simp
+  prism: jianpin
+  enable_user_dict: false
+  enable_sentence: true
+  enable_completion: false
+  contextual_suggestions: false
+key_binder:
+  bindings:
+    - { when: has_menu, accept: minus, send: Page_Up }
+    - { when: has_menu, accept: equal, send: Page_Down }
+punctuator:
+  half_shape:
+    ",": { commit: "，" }
+    ".": { commit: "。" }
+    "!": { commit: "！" }
+    "?": { commit: "？" }
+    ":": { commit: "：" }
+    ";": { commit: "；" }
+    "(": "（"
+    ")": "）"
+    "[": "【"
+    "]": "】"
+    '"': { pair: ["“", "”"] }
+    "'": { pair: ["‘", "’"] }

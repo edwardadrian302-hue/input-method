@@ -1,0 +1,43 @@
+#pragma once
+#include <msctf.h>
+// Only keyboard subscription is replaced: Windows rejects subscriptions from an
+// unregistered TIP. All text stores, edit sessions, ranges and notifications remain real TSF.
+// This is not a test of system registration or actual browser key routing.
+class TestManager final:public ITfThreadMgr,public ITfKeystrokeMgr {
+  LONG refs_=1;ITfThreadMgr* real_;
+public:
+  explicit TestManager(ITfThreadMgr* m):real_(m){m->AddRef();}
+  ~TestManager(){real_->Release();}
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID i,void** p)override{
+    if(i==IID_IUnknown||i==IID_ITfThreadMgr){*p=static_cast<ITfThreadMgr*>(this);AddRef();return S_OK;}
+    if(i==IID_ITfKeystrokeMgr){*p=static_cast<ITfKeystrokeMgr*>(this);AddRef();return S_OK;}
+    return real_->QueryInterface(i,p);
+  }
+  ULONG STDMETHODCALLTYPE AddRef()override{return InterlockedIncrement(&refs_);}
+  ULONG STDMETHODCALLTYPE Release()override{auto n=InterlockedDecrement(&refs_);if(!n)delete this;return n;}
+  HRESULT STDMETHODCALLTYPE Activate(TfClientId* p)override{return real_->Activate(p);}
+  HRESULT STDMETHODCALLTYPE Deactivate()override{return real_->Deactivate();}
+  HRESULT STDMETHODCALLTYPE CreateDocumentMgr(ITfDocumentMgr** p)override{return real_->CreateDocumentMgr(p);}
+  HRESULT STDMETHODCALLTYPE EnumDocumentMgrs(IEnumTfDocumentMgrs** p)override{return real_->EnumDocumentMgrs(p);}
+  HRESULT STDMETHODCALLTYPE GetFocus(ITfDocumentMgr** p)override{return real_->GetFocus(p);}
+  HRESULT STDMETHODCALLTYPE SetFocus(ITfDocumentMgr* p)override{return real_->SetFocus(p);}
+  HRESULT STDMETHODCALLTYPE AssociateFocus(HWND h,ITfDocumentMgr* p,ITfDocumentMgr** q)override{return real_->AssociateFocus(h,p,q);}
+  HRESULT STDMETHODCALLTYPE IsThreadFocus(BOOL* p)override{return real_->IsThreadFocus(p);}
+  HRESULT STDMETHODCALLTYPE GetFunctionProvider(REFCLSID c,ITfFunctionProvider** p)override{return real_->GetFunctionProvider(c,p);}
+  HRESULT STDMETHODCALLTYPE EnumFunctionProviders(IEnumTfFunctionProviders** p)override{return real_->EnumFunctionProviders(p);}
+  HRESULT STDMETHODCALLTYPE GetGlobalCompartment(ITfCompartmentMgr** p)override{return real_->GetGlobalCompartment(p);}
+  HRESULT STDMETHODCALLTYPE AdviseKeyEventSink(TfClientId,ITfKeyEventSink*,BOOL)override{return S_OK;}
+  HRESULT STDMETHODCALLTYPE UnadviseKeyEventSink(TfClientId)override{return S_OK;}
+  HRESULT STDMETHODCALLTYPE GetForeground(CLSID*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE TestKeyDown(WPARAM,LPARAM,BOOL*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE TestKeyUp(WPARAM,LPARAM,BOOL*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE KeyDown(WPARAM,LPARAM,BOOL*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE KeyUp(WPARAM,LPARAM,BOOL*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetPreservedKey(ITfContext*,const TF_PRESERVEDKEY*,GUID*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE IsPreservedKey(REFGUID,const TF_PRESERVEDKEY*,BOOL*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE PreserveKey(TfClientId,REFGUID,const TF_PRESERVEDKEY*,const WCHAR*,ULONG)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE UnpreserveKey(REFGUID,const TF_PRESERVEDKEY*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE SetPreservedKeyDescription(REFGUID,const WCHAR*,ULONG)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE GetPreservedKeyDescription(REFGUID,BSTR*)override{return E_NOTIMPL;}
+  HRESULT STDMETHODCALLTYPE SimulatePreservedKey(ITfContext*,REFGUID,BOOL*)override{return E_NOTIMPL;}
+};

@@ -1,0 +1,7 @@
+.tools/
+.downloads/
+build/
+dist/
+test-output/
+vendor/
+__pycache__/
