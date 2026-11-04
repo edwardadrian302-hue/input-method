@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 foreach ($name in @('ChaoxiPinyin.dll','ChaoxiPinyinBroker.exe','ChaoxiPinyinSettings.exe','rime.dll','data','licenses','README.md','THIRD_PARTY.md','uninstall.ps1')) {
   Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Recurse -Force
 }
-Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.5.1' -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.6.0' -Encoding UTF8
 $dll = Join-Path $target 'ChaoxiPinyin.dll'
 $proc = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" -ArgumentList @('/s', ('"' + $dll + '"')) -WindowStyle Hidden -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "注册失败，退出码 $($proc.ExitCode)。文件已保留供检查。" }

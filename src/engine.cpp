@@ -16,6 +16,7 @@ Engine::Engine(const fs::path& root,const fs::path& home):root_(root),home_(home
       try{auto word=wide(line.substr(0,tab).c_str());auto count=std::stoull(line.substr(tab+1));if(chineseWord(word,4)&&count)profile_.words[word]=std::min<uint64_t>(count,1000000);}catch(...){} }
   }
   lexicon_.load(root_);
+  english_.load(root_);
   dll_=LoadLibraryExW((root_/L"rime.dll").c_str(),nullptr,LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR|LOAD_LIBRARY_SEARCH_SYSTEM32);
   if(!dll_) throw std::runtime_error("Cannot load rime.dll (or its runtime dependencies)");
   auto get=reinterpret_cast<RimeApi*(*)()>(GetProcAddress(dll_,"rime_get_api"));
@@ -69,7 +70,7 @@ void Engine::start() {
   shared_=utf8((root_/L"data").wstring()); user_=utf8((home_/L"engine-v5").wstring()); staging_=utf8((home_/L"cache-v5").wstring());
   RIME_STRUCT(RimeTraits,t); t.shared_data_dir=shared_.c_str(); t.user_data_dir=user_.c_str();
   t.prebuilt_data_dir=shared_.c_str(); t.staging_dir=staging_.c_str();
-  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.5.1";
+  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.6.0";
   t.app_name="rime.chaoxipinyin"; t.min_log_level=3; t.log_dir="";
   static const char* modules[]={"default",nullptr}; t.modules=modules;
   api_->setup(&t); api_->initialize(&t);
@@ -209,6 +210,16 @@ Response Engine::handle(const Request& q) {
         // Leave normal alternatives available as well as correction candidates.
         for(size_t i=personal;i<extra.size()&&i<personal+3;++i)append(extra[i]);
         for(auto& choice:choices)append(choice);choices=std::move(merged);
+      }
+      if(raw&&r.page==0&&EnglishLexicon::letters(raw)){
+        std::vector<Choice> english;english.push_back({-1,wide(raw)});
+        if(profile_.options&OptCompletion)for(auto& word:english_.complete(raw))english.push_back({-1,word});
+        // Keep the current Chinese/personal first choice and all native choices.
+        // English choices share the existing direct-selection and extra-page path.
+        size_t at=choices.empty()?0:1;
+        for(auto& choice:english)if(std::none_of(choices.begin(),choices.end(),[&](const auto& c){return c.text==choice.text;})){
+          choices.insert(choices.begin()+at,choice);++at;
+        }
       }
       if(r.page==0){paging.pages=std::max(1,((int)choices.size()+8)/9);paging.page=std::clamp(paging.page,0,paging.pages-1);
         int first=paging.page*9,last=std::min(first+9,(int)choices.size());choices=std::vector<Choice>(choices.begin()+first,choices.begin()+last);

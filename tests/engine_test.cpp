@@ -141,6 +141,30 @@ int wmain(){
     copyText(restore.text,backupPath.wstring());rejected=false;try{engine->handle(restore);}catch(...){rejected=true;}CloseHandle(locked);
     require(rejected&&readProfileFile(learned)==saved.encode()&&op(Op::Status).phraseCount==1,"failed restore preserves disk and active profile");
     engine.reset();engine=std::make_unique<Engine>(root,home);require(op(Op::Status).limit==16&&op(Op::Status).phraseCount==1,"expanded settings and personal phrases persist across restart");
+    // English selections are local candidates and must leave Chinese mode/learning intact.
+    configure(OptCompletion|OptLearning|OptPrediction);op(Op::Erase);
+    auto selectText=[&](const char* input,const wchar_t* text){auto candidates=type(input);int found=-1;
+      for(int i=0;i<candidates.count;++i)if(std::wstring(candidates.candidates[i])==text)found=i;
+      require(found>=0,"English candidate appears on the first page");return key('1'+found);};
+    for(const char* input:{"build","hello","nihao","qzqz"}){
+      auto result=selectText(input,wide(input).c_str());
+      require(std::wstring(result.commit)==wide(input)&&!*result.preedit&&!result.count&&!result.prediction,"numeric English selection commits exactly once without prediction");
+    }
+    r=type("nihao");require(std::wstring(r.candidates[0])==L"你好"&&std::wstring(r.candidates[1])==L"nihao","Chinese first choice is followed by raw English input");
+    require(std::wstring(key(' ').commit)==L"你好","English candidate preserves Chinese space selection");op(Op::Erase);
+    r=type("buil");require(contains(r,L"buil")&&contains(r,L"build"),"prefix offers both raw input and complete English word");
+    int englishCount=0;for(int i=0;i<r.count;++i)if(EnglishLexicon::letters(utf8(r.candidates[i])))++englishCount;
+    require(englishCount<=4,"English suggestions are limited to raw input and three completions");
+    auto completed=selectText("buil",L"build");require(std::wstring(completed.commit)==L"build"&&!*completed.preedit&&!completed.prediction,"numeric completion commits full English word");
+    require(learnedWords().empty(),"English raw/completed selections are never learned as Chinese words");
+    require(!contains(type("bu"),L"build"),"short prefixes do not trigger English completion");
+    configure(OptLearning);r=type("buil");require(contains(r,L"buil")&&!contains(r,L"build"),"completion switch disables English expansion but preserves raw candidate");
+    configure(OptCompletion|OptLearning);type("build");key(0xff08);r=key(0xff08);
+    require(contains(r,L"bui")&&!contains(r,L"buil"),"backspace refreshes raw input and removes stale raw candidate");
+    type("build");r=key(0xff1b);require(!r.count&&!*r.commit&&!*r.preedit,"Escape removes English candidates without committing");
+    require(!contains(type("xi'an"),L"xi'an"),"pinyin separators are not treated as English words");
+    r=type("nihao");int duplicates=0;for(int i=0;i<r.count;++i)if(std::wstring(r.candidates[i])==L"nihao")++duplicates;
+    require(duplicates==1,"raw candidate appears once");
     // Extra candidates have their own pages; none of the original first nine are lost.
     configure(OptCompletion|OptLearning);auto original=type("nihao");std::vector<std::wstring> baseline;
     for(int i=0;i<original.count;++i)baseline.push_back(original.candidates[i]);

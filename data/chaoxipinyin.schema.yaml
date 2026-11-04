@@ -2,7 +2,7 @@
 schema:
   schema_id: chaoxipinyin
   name: 潮汐拼音
-  version: "0.5.1"
+  version: "0.6.0"
 switches:
   - name: ascii_mode
     reset: 0

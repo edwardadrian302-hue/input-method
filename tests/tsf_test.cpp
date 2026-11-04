@@ -114,6 +114,17 @@ int wmain(){
     shiftToggle();check(store->text==beforeEnglish+L"hello","empty Shift toggle inserts no duplicate text");
     for(char c:std::string("NIHAOX"))key(c);key(VK_BACK);shiftToggle();
     check(store->text==beforeEnglish+L"hellonihao","Shift commits edited raw input");shiftToggle();
+    auto chooseEnglish=[&](const std::string& input,const wchar_t* expected){
+      auto before=store->text;
+      Request probe;probe.client=987;probe.op=Op::Clear;Response candidates;check(exchange(probe,candidates),"clear English probe session");
+      probe.op=Op::Key;for(char c:input){probe.key=c;check(exchange(probe,candidates),"query isolated English candidate order");key((WPARAM)(c-'a'+'A'));}
+      int index=-1;for(int i=0;i<candidates.count;++i)if(std::wstring(candidates.candidates[i])==expected)index=i;
+      check(index>=0,"English candidate visible");key('1'+index);
+      check(store->text==before+expected,"English candidate inserts full text exactly once");
+      BOOL chinese=FALSE;keys->OnTestKeyDown(ctx,'A',0,&chinese);check(chinese,"English candidate selection preserves Chinese mode");
+    };
+    chooseEnglish("build",L"build");chooseEnglish("buil",L"build");chooseEnglish("nihao",L"nihao");
+    auto beforeChinese=store->text;for(char c:std::string("NIHAO"))key(c);key(VK_SPACE);check(store->text==beforeChinese+L"你好","Chinese space selection remains available after English candidates");
     q=Request{};q.op=Op::PhrasePut;copyText(q.code,L"zhong guo ce shi hou zhui");copyText(q.text,L"中国测试后缀");check(exchange(q,r),"add isolated prediction fixture");
     q=Request{};q.op=Op::Configure;q.value=OptCompletion|OptLearning|OptPrediction;q.key=12;check(exchange(q,r),"enable offline prediction");
     auto beforePrediction=store->text;

@@ -16,7 +16,7 @@ schema = '''# ChaoxiPinyin: full pinyin using pinned rime-ice dictionaries; no R
 schema:
   schema_id: chaoxipinyin
   name: 潮汐拼音
-  version: "0.5.1"
+  version: "0.6.0"
 switches:
   - name: ascii_mode
     reset: 0
@@ -61,7 +61,7 @@ punctuator:
     "'": { pair: ["‘", "’"] }
 '''
 (DATA / "chaoxipinyin.schema.yaml").write_text(schema, encoding="utf-8")
-(DATA / "default.yaml").write_text('''config_version: "0.5.1"
+(DATA / "default.yaml").write_text('''config_version: "0.6.0"
 schema_list:
   - schema: chaoxipinyin
 menu:
@@ -69,7 +69,7 @@ menu:
 switcher:
   hotkeys: []
 ''', encoding="utf-8")
-# Verify every pinned input before copying the Chinese dictionaries.
+# Verify every pinned input before copying the Chinese and English dictionaries.
 import hashlib
 pin = json.loads((ROOT / "dictionary.lock.json").read_text(encoding="utf-8-sig"))
 for item in pin["files"]:
@@ -79,11 +79,13 @@ for item in pin["files"]:
 (DATA / "cn_dicts").mkdir(exist_ok=True)
 for name in ("8105", "base", "ext"):
     shutil.copy2(ROOT / "vendor/rime-ice/cn_dicts" / (name + ".dict.yaml"), DATA / "cn_dicts")
+(DATA / "en_dicts").mkdir(exist_ok=True)
+shutil.copy2(ROOT / "vendor/rime-ice/en_dicts/en.dict.yaml", DATA / "en_dicts/en.dict.yaml")
 (DATA / "chaoxi.dict.yaml").write_text("""# Chinese tables from iDvel/rime-ice, pinned in dictionary.lock.json.
 # Wrapper modified for 潮汐拼音: no English, Lua plugins, or network services.
 ---
 name: chaoxi
-version: '0.5.1'
+version: '0.6.0'
 sort: by_weight
 import_tables:
   - cn_dicts/8105

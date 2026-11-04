@@ -1,4 +1,4 @@
-config_version: "0.5.1"
+config_version: "0.6.0"
 schema_list:
   - schema: chaoxipinyin
 menu:

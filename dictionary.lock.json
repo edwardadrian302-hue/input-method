@@ -21,6 +21,10 @@
     {
       "path": "cn_dicts/ext.dict.yaml",
       "sha256": "d2d52bf75f7bcdd8a4afb036ab879415a7e620e529a4ecebc71780fe7ccdf648"
+    },
+    {
+      "path": "en_dicts/en.dict.yaml",
+      "sha256": "1049164da983c1c5a933d6401df9a8e5f8a378b0c67b102e0f75f0a65226ec44"
     }
   ]
 }

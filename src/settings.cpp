@@ -125,7 +125,7 @@ static LRESULT CALLBACK proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     for(int size:sizes)SendMessageW(fontBox,CB_ADDSTRING,0,(LPARAM)std::to_wstring(size).c_str());SendMessageW(fontBox,CB_SETCURSEL,2,0);
     add(L"STATIC",L"磅 · 窗口随内容与屏幕缩放",0,236,207,240,28,0);
     checks[1]=add(L"BUTTON",L"中文模式使用英文标点 , . ; :",BS_AUTOCHECKBOX|WS_TABSTOP,28,255,440,26,111);
-    checks[2]=add(L"BUTTON",L"拼音补全与简拼混输（shenm / sm → 什么）",BS_AUTOCHECKBOX|WS_TABSTOP,28,298,450,26,112);
+    checks[2]=add(L"BUTTON",L"拼音补全、简拼与英文补全（buil → build）",BS_AUTOCHECKBOX|WS_TABSTOP,28,298,450,26,112);
     add(L"STATIC",L"模糊音  ·  按需开启，默认关闭",0,28,348,440,24,0);
     const wchar_t* names[]={L"z ↔ zh",L"c ↔ ch",L"s ↔ sh",L"n ↔ l",L"en ↔ eng",L"an ↔ ang",L"in ↔ ing"};
     for(int i=0;i<7;++i)checks[i+3]=add(L"BUTTON",names[i],BS_AUTOCHECKBOX|WS_TABSTOP,28+(i%3)*145,383+(i/3)*34,140,26,113+i);
