@@ -1,0 +1,26 @@
+{
+  "yaml-cpp": {
+    "url": "https://codeload.github.com/jbeder/yaml-cpp/zip/56e3bb550c91fd7005566f19c079cb7a503223cf",
+    "commit": "56e3bb550c91fd7005566f19c079cb7a503223cf",
+    "sha256": "4b7b1e19f30c2acb51591fd90320aa0824234d3b38a36ab3181530ce6841c66b"
+  },
+  "leveldb": {
+    "url": "https://codeload.github.com/google/leveldb/zip/bb74ef739973a70ca9f0d90788a1da89b788c0ad",
+    "commit": "bb74ef739973a70ca9f0d90788a1da89b788c0ad",
+    "sha256": "2e504b1a1681aaf70713e4c793f785ab2ec0e7f640e69b2c16e854ee009e50d9"
+  },
+  "opencc": {
+    "url": "https://codeload.github.com/BYVoid/OpenCC/zip/025f371dc76b598d77384fbdab90c937471844d8",
+    "commit": "025f371dc76b598d77384fbdab90c937471844d8",
+    "sha256": "86597089e5de51d4665e2715d0df2d68fe0692d42c31a462990401048a7e83f0"
+  },
+  "boost": {
+    "url": "https://archives.boost.io/release/1.89.0/source/boost_1_89_0.tar.bz2",
+    "version": "1.89.0",
+    "sha256": "85a33fa22621b4f314f8e85e1a5e2a9363d22e4f4992925d4bb3bc631b5a0c7a"
+  },
+  "rapidjson-license": {
+    "url": "https://raw.githubusercontent.com/Tencent/rapidjson/v1.1.0/license.txt",
+    "sha256": "a140e5d46fe734a1c78f1a3c3ef207871dd75648be71fdda8e309b23ab8b1f32"
+  }
+}

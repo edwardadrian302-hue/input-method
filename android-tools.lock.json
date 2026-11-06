@@ -1,0 +1,31 @@
+{
+  "platforms/android-36": {
+    "url": "https://dl.google.com/android/repository/platform-36_r02.zip",
+    "sha1": "2c1a80dd4d9f7d0e6dd336ec603d9b5c55a6f576",
+    "sha256": "37607369a28c5b640b3a7998868d45898ebcb777565a0e85f9acf36f29631d2e"
+  },
+  "build-tools/36.0.0": {
+    "url": "https://dl.google.com/android/repository/build-tools_r36_windows.zip",
+    "sha1": "f16ccffd34de8790dede813a6c7d8e2c11a27b50",
+    "sha256": "aa1095cb14d83e483818a748a2c06faaeb8e601561b06a356a119a1b2ca280d3"
+  },
+  "ndk/28.2.13676358": {
+    "url": "https://dl.google.com/android/repository/android-ndk-r28c-windows.zip",
+    "sha1": "086bba43ff2f5eb0e387b15c8278bb4e0d89ba1d",
+    "sha256": "6bec98ac2354d8a919760889a1a41d020132e5e8cfa1b1fe51610a72c36a466b"
+  },
+  "cmake/3.22.1": {
+    "url": "https://dl.google.com/android/repository/cmake-3.22.1-windows.zip",
+    "sha1": "292778f32a7d5183e1c49c7897b870653f2d2c1b",
+    "sha256": "c9a9d568452a20cf27d703cb21ef9529dd67bda6be048c4d4b884acb3ac3a2b8"
+  },
+  "cmdline-tools/19.0": {
+    "url": "https://dl.google.com/android/repository/commandlinetools-win-13114758_latest.zip",
+    "sha1": "54a582f3bf73e04253602f2d1c80bd5868aac115",
+    "sha256": "98b565cb657b012dae6794cefc0f66ae1efb4690c699b78a614b4a6a3505b003"
+  },
+  "gradle": {
+    "url": "https://services.gradle.org/distributions/gradle-8.13-bin.zip",
+    "sha256": "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78"
+  }
+}

@@ -2,14 +2,14 @@
 [Setup]
 AppId={{3719C10E-98BF-4B9E-A4F2-D3CEBC8FB692}
 AppName=潮汐拼音
-AppVersion=0.6.0-preview
+AppVersion=0.6.2-preview
 AppPublisher=潮汐拼音
 DefaultDirName=D:\ChaoxiPinyin
 DefaultGroupName=潮汐拼音
 DisableDirPage=no
 DisableProgramGroupPage=yes
 OutputDir=..\build
-OutputBaseFilename=ChaoxiPinyin-0.6.0-preview-win-x64-Setup
+OutputBaseFilename=ChaoxiPinyin-0.6.2-preview-win-x64-Setup
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
 MinVersion=10.0
@@ -27,6 +27,10 @@ SetupLogging=yes
 [Languages]
 Name: "chinesesimplified"; MessagesFile: "ChineseSimplified.isl"
 
+[Dirs]
+; Only mutable data is writable. Keep it, including its contents, on uninstall.
+Name: "{app}\UserData"; Permissions: users-modify; Flags: uninsneveruninstall
+
 [Files]
 Source: "..\dist\ChaoxiPinyin.dll"; DestDir: "{app}"; Flags: ignoreversion regserver uninsrestartdelete
 Source: "..\dist\ChaoxiPinyinBroker.exe"; DestDir: "{app}"; Flags: ignoreversion uninsrestartdelete
@@ -41,8 +45,7 @@ Source: "..\dist\THIRD_PARTY.md"; DestDir: "{app}"; Flags: ignoreversion
 Name: "{group}\潮汐拼音设置"; Filename: "{app}\ChaoxiPinyinSettings.exe"
 Name: "{group}\卸载潮汐拼音"; Filename: "{uninstallexe}"
 
-[UninstallDelete]
-Type: files; Name: "{app}\chaoxipinyin-install.marker"
+; Keep the install marker with UserData so reinstalling here remains possible.
 
 [Code]
 function GetFileAttributesW(Name: String): Cardinal;
@@ -61,6 +64,10 @@ begin
     Result := '请选择本地磁盘中的专用文件夹，不能安装到磁盘根目录。'; exit;
   end;
   Parent := Target;
+  if (GetFileAttributesW(AddBackslash(Target) + 'UserData') <> $FFFFFFFF) and
+     ((GetFileAttributesW(AddBackslash(Target) + 'UserData') and $400) <> 0) then begin
+    Result := 'UserData 不能是目录链接。'; exit;
+  end;
   while Length(Parent) > 3 do begin
     if (GetFileAttributesW(Parent) <> $FFFFFFFF) and
        ((GetFileAttributesW(Parent) and $400) <> 0) then begin
@@ -109,7 +116,7 @@ end;
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep = ssPostInstall then
-    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.6.0', False);
+    SaveStringToFile(ExpandConstant('{app}\chaoxipinyin-install.marker'), 'ChaoxiPinyin 0.6.2', False);
 end;
 
 procedure CurPageChanged(CurPageID: Integer);

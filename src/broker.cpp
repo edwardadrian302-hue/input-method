@@ -2,7 +2,8 @@
 #include <iostream>
 int wmain(int argc,wchar_t** argv) {
   try {
-    fs::path home=argc==3 && std::wstring(argv[1])==L"--data-dir"?fs::absolute(argv[2]):userDir();
+    bool isolated=argc==3 && std::wstring(argv[1])==L"--data-dir";
+    fs::path home=isolated?fs::absolute(argv[2]):userDir();
     auto sid=userSid(); std::wstring sddl=L"D:P(A;;GA;;;"+sid+L")";
     PSECURITY_DESCRIPTOR sd=nullptr;
     if(!ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(),SDDL_REVISION_1,&sd,nullptr)) return 2;
@@ -10,6 +11,7 @@ int wmain(int argc,wchar_t** argv) {
     HANDLE mutex=CreateMutexW(&sa,TRUE,(L"Local\\ChaoxiPinyin.Broker.v5."+sid+instanceSuffix()).c_str());
     if(!mutex)throw std::runtime_error("Cannot create user mutex; run in a normal Windows user session");
     if(GetLastError()==ERROR_ALREADY_EXISTS) { CloseHandle(mutex);LocalFree(sd);return 0; }
+    if(!isolated)migrateLegacyProfile(home,legacyUserDir());
     Engine engine(moduleDir(),home);
     bool running=true;
     HANDLE pipe=CreateNamedPipeW(pipeName().c_str(),PIPE_ACCESS_DUPLEX|FILE_FLAG_OVERLAPPED|FILE_FLAG_FIRST_PIPE_INSTANCE,

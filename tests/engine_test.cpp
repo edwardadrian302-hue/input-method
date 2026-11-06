@@ -7,6 +7,21 @@ static void require(bool good,const char* message){if(!good)throw std::runtime_e
 int wmain(){
   try{
     auto root=moduleDir().parent_path().parent_path()/L"dist";auto home=root.parent_path()/L"test-output"/(L"run-"+std::to_wstring(GetCurrentProcessId())+L"-"+std::to_wstring(GetTickCount64()));
+    auto migrationRoot=home/L"migration";auto old=migrationRoot/L"old";auto target=migrationRoot/L"new";
+    fs::create_directories(old);Profile migrationProfile;migrationProfile.words[L"你好"]=12;
+    migrationProfile.phrases[{"chaoxipinyin",L"潮汐拼音"}]=0;
+    writeProfileFile(old/L"profile.tsv",migrationProfile.encode());
+    migrateLegacyProfile(target,old);
+    require(readProfileFile(target/L"profile.tsv")==migrationProfile.encode(),"migration preserves settings, learned words and personal phrases byte for byte");
+    require(readProfileFile(old/L"profile.tsv")==migrationProfile.encode(),"migration preserves migrationProfile profile");
+    Profile changed;changed.words[L"世界"]=7;writeProfileFile(target/L"profile.tsv",changed.encode());
+    migrateLegacyProfile(target,old);
+    require(readProfileFile(target/L"profile.tsv")==changed.encode(),"migration never overwrites existing destination");
+    writeProfileFile(old/L"profile.tsv","broken");bool badMigration=false;
+    try{migrateLegacyProfile(migrationRoot/L"invalid",old);}catch(...){badMigration=true;}
+    require(badMigration&&!fs::exists(migrationRoot/L"invalid"/L"profile.tsv"),"invalid source cannot create a new profile");
+    migrateLegacyProfile(migrationRoot/L"empty",migrationRoot/L"missing");
+    require(!fs::exists(migrationRoot/L"empty"/L"profile.tsv"),"fresh installation does not invent a profile");
     auto engine=std::make_unique<Engine>(root,home);
     auto op=[&](Op op,int value=0,uint64_t client=1){Request q;q.op=op;q.value=value;q.client=client;return engine->handle(q);};
     auto key=[&](int k,uint64_t client=1){Request q;q.op=Op::Key;q.key=k;q.client=client;return engine->handle(q);};
@@ -62,6 +77,12 @@ int wmain(){
       require(literal.eaten&&std::wstring(literal.commit)==wide(raw)&&!*literal.preedit&&literal.count==0,"Return commits original Latin input without syllable formatting");
     }
     require(learnedWords().empty(),"raw Latin commits never learned");
+    engine->suppressLearning(true);type("beijing");key(' ');
+    require(learnedWords().empty(),"temporary private input suppresses learning");
+    require(op(Op::Status).learning==1,"private input does not change saved learning preference");
+    engine->suppressLearning(false);type("beijing");key(' ');
+    require(learnedWords().count(L"北京")==1,"learning resumes after private input");op(Op::Erase);
+
     bool userdb=false;for(auto& entry:fs::recursive_directory_iterator(home))if(entry.path().wstring().find(L"userdb")!=std::wstring::npos)userdb=true;
     require(!userdb,"Rime user databases always disabled");
     op(Op::Erase);r=type("nihaozhongguoren");require(wcslen(r.candidates[0])>4,"long sentence fixture");key(' ');require(learnedWords().empty(),"default limit excludes long Chinese sentences");
@@ -224,6 +245,93 @@ int wmain(){
     require(op(Op::Status).learning==0&&op(Op::Status).font==14,"legacy preferences migrate");op(Op::Learning,1);
     require(Profile::decode(readProfileFile(legacy/L"profile.tsv")).words.at(L"你好")==7&&fs::exists(legacy/L"words.tsv"),"legacy frequency migrates without deleting original data");
     op(Op::Erase);require(!fs::exists(legacy/L"words.tsv")&&Profile::decode(readProfileFile(legacy/L"profile.tsv")).words.empty(),"explicit clear also deletes legacy learned frequencies");
+
+    // Versioned capacity persistence and backward-compatible legacy decoding.
+    auto oldFormat=Profile::decode("CHAOXI_BACKUP\t1\nSET\t1\t12\t1\t0\t4\nWORD\t"+utf8(L"你好")+"\t2\nEND\t1\t0\n");
+    require(oldFormat.wordCapacity==8192&&oldFormat.phraseCapacity==4096,"v1 profiles keep historical default capacities");
+    Profile expanded;expanded.wordCapacity=9000;expanded.phraseCapacity=6000;
+    for(int i=0;i<8200;++i)expanded.words[std::wstring(L"学")+(wchar_t)(0x4e00+i)]=1;
+    for(int i=0;i<4200;++i)expanded.phrases[{"ci",std::wstring(L"词")+(wchar_t)(0x4e00+i)}]=0;
+    auto expandedAgain=Profile::decode(expanded.encode());
+    require(expandedAgain.words.size()==8200&&expandedAgain.phrases.size()==4200&&expandedAgain.wordCapacity==9000&&expandedAgain.phraseCapacity==6000,"v2 round trip exceeds both former fixed limits");
+    for(auto limits:{"0\t4096","100001\t4096","8192\t0","8192\t100001"}){
+      bool invalid=false;try{Profile::decode(std::string("CHAOXI_BACKUP\t2\nSET\t1\t12\t1\t0\t4\nCAP\t")+limits+"\nEND\t0\t0\n");}catch(...){invalid=true;}
+      require(invalid,"invalid persisted capacities rejected");
+    }
+    engine.reset();auto advanced=home/L"capacity-ninekey";engine=std::make_unique<Engine>(root,advanced);
+    Request capacity;capacity.op=Op::Capacity;auto capacities=engine->handle(capacity);
+    require(capacities.importNew==8192&&capacities.importDuplicate==4096,"query exposes default capacities without writing");
+    capacity.value=1;capacity.limit=2;require(engine->handle(capacity).ok,"small custom capacities accepted");
+    type("nihao");key(' ');type("beijing");key(' ');
+    require(Profile::decode(readProfileFile(advanced/L"profile.tsv")).words.size()==1,"learning stops adding records at configured capacity");
+    type("nihao");key(' ');
+    require(Profile::decode(readProfileFile(advanced/L"profile.tsv")).words.at(L"你好")==2,"existing words continue counting when capacity is full");
+    capacity.value=9000;capacity.limit=6000;require(engine->handle(capacity).ok,"capacity can be raised without deleting words");
+    type("beijing");key(' ');require(Profile::decode(readProfileFile(advanced/L"profile.tsv")).words.count(L"北京")==1,"raising capacity permits new learned words");
+    auto safeProfile=readProfileFile(advanced/L"profile.tsv");capacity.value=1;
+    require(!engine->handle(capacity).ok&&readProfileFile(advanced/L"profile.tsv")==safeProfile,"capacity below existing records is rejected atomically");
+    Request allSettings;allSettings.op=Op::Configure;allSettings.value=OptLearning;allSettings.key=18;allSettings.limit=8;copyText(allSettings.text,L"1 6000");
+    require(!engine->handle(allSettings).ok&&engine->handle(Request{}).font==12,"invalid capacity cannot partially apply other settings");
+    copyText(allSettings.text,L"9000 6000");require(engine->handle(allSettings).ok,"capacity and other settings apply together");
+    configure(OptCompletion|OptLearning);
+    engine.reset();engine=std::make_unique<Engine>(root,advanced);capacity.value=0;capacities=engine->handle(capacity);
+    require(capacities.importNew==9000&&capacities.importDuplicate==6000,"capacities persist after engine restart");
+    preview.client=900;copyText(preview.text,dictionary.wstring());auto overOldLimit=engine->handle(preview);
+    require(overOldLimit.importNew>4096&&engine->handle(confirm).ok,"batch import follows raised personal capacity");
+    capacity.value=9000;capacity.limit=4096;safeProfile=readProfileFile(advanced/L"profile.tsv");
+    require(!engine->handle(capacity).ok&&safeProfile==readProfileFile(advanced/L"profile.tsv"),"cannot shrink personal capacity below imported records");
+    auto typeNine=[&](const char* digits){op(Op::Clear);Response state;for(auto p=digits;*p;++p){Request digit;digit.op=Op::NineKey;digit.key=*p;digit.client=1;state=engine->handle(digit);}return state;};
+    engine->setNineKey(true);
+    r=typeNine("7664");
+    require(r.count>1&&contains(r,L"送")&&contains(r,L"松"),"7664 exposes multiple selectable words rather than only rong");
+    auto readings=engine->nineKeySpellings(1);
+    require(std::find(readings.begin(),readings.end(),"song")!=readings.end()&&std::find(readings.begin(),readings.end(),"rong")!=readings.end(),"nine-key offers song and rong phonetic alternatives");
+    r=engine->chooseNineKeySpelling(1,"song");
+    require(std::wstring(r.preedit)==L"song"&&contains(r,L"送")&&!contains(r,L"容"),"choosing song filters out rong and updates preedit");
+    int songIndex=-1;for(int i=0;i<r.count;i++)if(std::wstring(r.candidates[i])==L"松")songIndex=i;
+    require(songIndex>=0&&std::wstring(key('1'+songIndex).commit)==L"松","filtered touch selection uses the matching absolute Rime index");
+    require(engine->nineKeyPrefix(1).empty(),"committing a filtered word clears its spelling lock");
+    typeNine("7664");r=engine->chooseNineKeySpelling(1,"song");auto firstSong=std::wstring(r.candidates[0]);
+    r=key('=');require(r.page==1&&r.count>0,"filtered candidates have a second page");
+    r=key('-');require(r.page==0&&std::wstring(r.candidates[0])==firstSong,"filtered previous page returns to the same words");
+    r=engine->chooseNineKeySpelling(1,"-");require(engine->nineKeyPrefix(1).empty()&&contains(r,L"容"),"undo spelling restores all alternatives from page zero");
+    typeNine("766454");r=engine->chooseNineKeySpelling(1,"song");
+    require(contains(r,L"送礼"),"song filtering retains multi-syllable phrases");
+    readings=engine->nineKeySpellings(1);require(std::find(readings.begin(),readings.end(),"li")!=readings.end(),"phonetic selection advances to the next syllable");
+    r=engine->chooseNineKeySpelling(1,"li");require(std::wstring(r.preedit)==L"song li"&&std::wstring(r.candidates[0])==L"送礼","successive song li locks select the desired phrase");
+    require(std::wstring(key(' ').commit)==L"送礼","space commits a complete filtered phrase");
+    typeNine("7664");engine->chooseNineKeySpelling(1,"song");r=key(0xff08);
+    require(*r.preedit&&r.count>0,"editing a filtered composition remains usable");
+    op(Op::Clear);require(engine->nineKeyPrefix(1).empty()&&engine->nineKeySpellings(1).empty(),"clear removes all phonetic state");
+    r=typeNine("64426");
+
+    std::cout<<"Nine-key sample: ";for(int i=0;i<r.count;++i)std::cout<<utf8(r.candidates[i])<<" | ";std::cout<<"\n";
+    bool foundHello=false;int helloIndex=-1;
+    for(int pageIndex=0;pageIndex<5;++pageIndex){for(int i=0;i<r.count;++i)if(std::wstring(r.candidates[i])==L"你好"){foundHello=true;helloIndex=i;break;}if(foundHello||r.last)break;r=key('=');}
+    require(foundHello,"real nine-key 64426 offers nihao without multi-tap letters");
+    require(std::wstring(key('1'+helloIndex).commit)==L"你好","touch candidate selection commits nine-key word");
+    r=typeNine("64426");bool fakeEnglish=false;for(int i=0;i<r.count;++i)if(EnglishLexicon::letters(utf8(r.candidates[i])))fakeEnglish=true;
+    require(!fakeEnglish,"nine-key internal alphabet never leaks as English candidates");
+    std::cout<<"Nine-key spelling: "<<utf8(r.preedit)<<"\n";
+    require(std::wstring(r.preedit)==L"ni hao","nine-key preedit displays decoded ni hao letters");
+    for(const char* digits:{"5","56","5664","6442","64426744543"}){
+      auto spelling=typeNine(digits);std::cout<<"Nine-key "<<digits<<": "<<utf8(spelling.preedit)<<"\n";
+      require(*spelling.preedit&&std::wstring(spelling.preedit).find_first_of(L"0123456789")==std::wstring::npos,"partial and full nine-key composition contains letters rather than digits");
+    }
+    r=typeNine("64426");
+    r=key(0xff08);require(*r.preedit&&r.count>0,"nine-key backspace recomputes candidates");
+    r=key(0xff1b);require(!*r.preedit&&!r.count,"nine-key Escape clears composition");
+    typeNine("64426");require(std::wstring(key(0xff0d).commit)==L"64426","nine-key raw submit never exposes internal letters");
+    r=typeNine("64426744543");
+    std::cout<<"Nine-key sentence: "<<utf8(r.candidates[0])<<"\n";
+    require(std::wstring(r.candidates[0])==L"你好世界","nine-key composes a multiword phrase");
+    require(std::wstring(key(' ').commit)==L"你好世界","nine-key space commits complete multiword phrase");
+    r=typeNine("744");auto firstNinePage=std::wstring(r.candidates[0]);auto nextNinePage=key('=');
+    require(nextNinePage.page>0&&nextNinePage.count>0,"nine-key candidate next page works");
+    require(key('-').page==0,"nine-key candidate previous page returns correctly");
+    typeNine("64426");engine->setNineKey(false);r=type("nihao");
+    require(std::wstring(r.candidates[0])==L"你好","switching back to 26 keys preserves normal pinyin");
+    require(contains(type("buil"),L"build"),"English completion works after switching away from nine keys");
     std::cout<<"PASS: "<<checks<<" engine checks. Test data: "<<utf8(home.wstring())<<"\n";return 0;
   }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<" checks: "<<e.what()<<"\n";return 1;}
 }

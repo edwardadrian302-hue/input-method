@@ -1,0 +1,1 @@
+<resources><string name="capacity_usage">自动学习：%1$d / %2$d 条\n个人词条：%3$d / %4$d 条</string><string name="capacity_invalid">两项容量均需填写 1–100000 的整数。</string><string name="capacity_number">%1$d</string></resources>

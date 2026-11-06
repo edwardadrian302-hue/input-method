@@ -1,0 +1,54 @@
+plugins { id 'com.android.application' }
+def signingDirectory = rootProject.file('../.tools/android-signing')
+def personalSigning = new Properties()
+def signingProperties = new File(signingDirectory, 'signing.properties')
+if (!signingProperties.exists()) throw new GradleException('Run scripts/prepare-android-signing.ps1 first.')
+signingProperties.withInputStream { personalSigning.load(it) }
+android {
+    namespace 'com.chaoxi.pinyin'
+    compileSdk 36
+    buildToolsVersion "36.0.0"
+    ndkVersion '28.2.13676358'
+    defaultConfig {
+        applicationId 'com.chaoxi.pinyin'
+        minSdk 30
+        targetSdk 36
+        versionCode 6
+        versionName '0.4.0-preview'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild { cmake { cppFlags '-std=c++17'; arguments '-DANDROID_STL=c++_shared' } }
+    }
+    externalNativeBuild { cmake { path 'src/main/cpp/CMakeLists.txt'; version '3.22.1' } }
+    signingConfigs {
+        personal {
+            storeFile new File(signingDirectory, 'ChaoxiPinyin.jks')
+            storePassword personalSigning.getProperty('storePassword')
+            keyAlias personalSigning.getProperty('keyAlias')
+            keyPassword personalSigning.getProperty('storePassword')
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.personal }
+        release { minifyEnabled false; signingConfig signingConfigs.personal }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    packaging { jniLibs { useLegacyPackaging false } }
+}
+// Assets need a data/ prefix because the native engine consumes the desktop layout.
+android.sourceSets.main.assets.srcDirs = [layout.buildDirectory.dir('generated/assets')]
+tasks.register('prepareDictionary', Sync) {
+    from('../../data') { into 'data' }
+    from('../../licenses') { include 'librime-BSD.txt', 'rime-ice-GPL3.txt'; into 'licenses' }
+    from('../THIRD_PARTY.md')
+    from('../../vendor/android-deps/boost_1_89_0/LICENSE_1_0.txt') { into 'licenses'; rename { 'boost.txt' } }
+    from('../../vendor/android-deps/yaml-cpp/LICENSE') { into 'licenses'; rename { 'yaml-cpp.txt' } }
+    from('../../vendor/android-deps/leveldb/LICENSE') { into 'licenses'; rename { 'leveldb.txt' } }
+    from('../../vendor/android-deps/opencc/LICENSE') { into 'licenses'; rename { 'opencc.txt' } }
+    from('../../vendor/android-deps/opencc/deps/marisa-0.3.1/COPYING.md') { into 'licenses'; rename { 'marisa.txt' } }
+    from('../../.downloads/rapidjson-license.txt') { into 'licenses'; rename { 'rapidjson.txt' } }
+    from('../../vendor/android-deps/opencc/deps/darts-clone-0.32h/COPYING.md') { into 'licenses'; rename { 'darts.txt' } }
+    from('../../.tools/android-sdk/ndk/28.2.13676358/NOTICE.toolchain') { into 'licenses'; rename { 'libcxx.txt' } }
+    from('../../.tools/android-sdk/ndk/28.2.13676358/NOTICE') { into 'licenses'; rename { 'ndk.txt' } }
+    into layout.buildDirectory.dir('generated/assets')
+}
+tasks.named('preBuild').configure { dependsOn 'prepareDictionary' }

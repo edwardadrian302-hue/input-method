@@ -5,7 +5,7 @@
 #include <commdlg.h>
 #include <thread>
 #include <memory>
-static HWND checks[12]={},fontBox,limitBox,statusText,previewWindow,mainWindow,phraseWindow=nullptr,phraseList,wordEdit,codeEdit;
+static HWND checks[12]={},fontBox,limitBox,wordCapacityBox,phraseCapacityBox,statusText,previewWindow,mainWindow,phraseWindow=nullptr,phraseList,wordEdit,codeEdit;
 static HFONT uiFont,titleFont;static int dpi=96;static bool ready=false,busy=false;static std::thread worker;
 static uint64_t importClient=((uint64_t)GetCurrentProcessId()<<32)^GetTickCount64();
 static void chooseImport(HWND,bool);
@@ -16,7 +16,7 @@ static const int sizes[]={10,11,12,14,16,18,20,24};
 static const int fuzzyFlags[]={FuzzyZ,FuzzyC,FuzzyS,FuzzyNL,FuzzyEn,FuzzyAn,FuzzyIn};
 static int fontValue(){int i=(int)SendMessageW(fontBox,CB_GETCURSEL,0,0);return i>=0&&i<8?sizes[i]:12;}
 static void controls(HWND w,bool enable){
-  for(HWND c:checks)EnableWindow(c,enable);EnableWindow(fontBox,enable);EnableWindow(limitBox,enable);
+  for(HWND c:checks)EnableWindow(c,enable);EnableWindow(fontBox,enable);EnableWindow(limitBox,enable);EnableWindow(wordCapacityBox,enable);EnableWindow(phraseCapacityBox,enable);
   for(int id:{103,104,105,106,107})EnableWindow(GetDlgItem(w,id),enable);
   if(phraseWindow)for(int id:{201,202,203,204,205,206,207,208})EnableWindow(GetDlgItem(phraseWindow,id),enable);
 }
@@ -30,7 +30,7 @@ static void load(const Response& r){
   SendMessageW(limitBox,CB_SETCURSEL,r.limit==16?2:r.limit==8?1:0,0);
   int n=2;for(int i=0;i<8;++i)if(sizes[i]==r.font)n=i;SendMessageW(fontBox,CB_SETCURSEL,n,0);InvalidateRect(previewWindow,nullptr,TRUE);
 }
-struct Result {bool ok;Response response;Op op;std::wstring error;std::vector<std::pair<std::wstring,std::wstring>> items;};
+struct Result {bool ok;Response response,capacity;Op op;std::wstring error;std::vector<std::pair<std::wstring,std::wstring>> items;};
 static void apply(HWND w,Request q,bool online=false){
   busy=true;controls(w,false);SetWindowTextW(statusText,online?L"正在下载雾凇扩展词库，仅下载词库文件…":L"正在处理本地数据，请稍候…");
   worker=std::thread([w,q,online]()mutable{auto result=new Result{};result->op=q.op;
@@ -48,6 +48,8 @@ static void apply(HWND w,Request q,bool online=false){
         offset+=r.count;if(offset>=r.phraseCount||!r.count)break;
       }
     }
+    if(result->ok){Request capacity;capacity.op=Op::Capacity;
+      result->ok=exchange(capacity,result->capacity,5000)&&result->capacity.importNew>=1&&result->capacity.importDuplicate>=1;}
     if(!PostMessageW(w,WM_APP+1,0,(LPARAM)result))delete result;
   });
 }
@@ -55,7 +57,7 @@ static int selectedPhrase(){return (int)SendMessageW(phraseList,LB_GETCURSEL,0,0
 static LRESULT CALLBACK phraseProc(HWND w,UINT m,WPARAM wp,LPARAM lp){
   if(m==WM_CREATE){
     auto add=[&](const wchar_t* cls,const wchar_t* text,DWORD style,int x,int y,int width,int height,int id){auto c=CreateWindowExW(cls==std::wstring(L"EDIT")?WS_EX_CLIENTEDGE:0,cls,text,WS_CHILD|WS_VISIBLE|style,px(x),px(y),px(width),px(height),w,(HMENU)(INT_PTR)id,nullptr,nullptr);SendMessageW(c,WM_SETFONT,(WPARAM)uiFont,TRUE);return c;};
-    add(L"STATIC",L"手动词条独立于自动学习；最多 4096 条；导入会跳过内置及已有词条。",0,20,15,590,25,0);
+    add(L"STATIC",L"手动词条独立于自动学习；容量可在设置中调整；导入跳过已有词条。",0,20,15,590,25,0);
     phraseList=add(L"LISTBOX",L"",LBS_NOTIFY|WS_VSCROLL|WS_TABSTOP|WS_BORDER,20,50,590,210,201);
     add(L"STATIC",L"词语",0,20,280,50,26,0);wordEdit=add(L"EDIT",L"",ES_AUTOHSCROLL|WS_TABSTOP,80,276,530,30,202);SendMessageW(wordEdit,EM_SETLIMITTEXT,32,0);
     add(L"STATIC",L"拼音",0,20,324,50,26,0);codeEdit=add(L"EDIT",L"",ES_AUTOHSCROLL|WS_TABSTOP,80,320,530,30,203);SendMessageW(codeEdit,EM_SETLIMITTEXT,96,0);
@@ -134,12 +136,18 @@ static LRESULT CALLBACK proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     add(L"STATIC",L"单按 Shift 或点击系统输入法的“中 / 英”按钮切换。\n英文模式直接输入英文标点。拼写设置应用时会重建词库索引。",0,28,548,460,42,0);
     add(L"BUTTON",L"应用设置",WS_TABSTOP|BS_DEFPUSHBUTTON,28,603,128,36,103);
     add(L"BUTTON",L"清除学习数据",WS_TABSTOP,172,603,160,36,104);
-    add(L"STATIC",L"候选外观预览",0,520,108,300,24,0);
-    previewWindow=add(L"ChaoxiPinyin.Preview",L"",0,520,146,310,264,0);
-    add(L"BUTTON",L"管理个人词库…",WS_TABSTOP,520,435,310,36,105);
-    add(L"BUTTON",L"导出设置与词库备份…",WS_TABSTOP,520,483,310,36,106);
-    add(L"BUTTON",L"恢复备份…",WS_TABSTOP,520,531,310,36,107);
-    add(L"STATIC",L"备份为明文，包含手动词条与学习词频。\n请妥善保存；词库更新由你主动联网下载。",0,520,591,310,48,0);
+    add(L"STATIC",L"词库容量（每类 1–100000 条）",0,520,20,310,25,0);
+    add(L"STATIC",L"自动学习上限",0,520,58,140,25,0);
+    wordCapacityBox=add(L"EDIT",L"8192",WS_BORDER|ES_NUMBER|ES_AUTOHSCROLL|WS_TABSTOP,665,52,165,30,122);
+    add(L"STATIC",L"个人词条上限",0,520,98,140,25,0);
+    phraseCapacityBox=add(L"EDIT",L"4096",WS_BORDER|ES_NUMBER|ES_AUTOHSCROLL|WS_TABSTOP,665,92,165,30,123);
+    SendMessageW(wordCapacityBox,EM_SETLIMITTEXT,6,0);SendMessageW(phraseCapacityBox,EM_SETLIMITTEXT,6,0);
+    add(L"STATIC",L"候选外观预览",0,520,140,300,24,0);
+    previewWindow=add(L"ChaoxiPinyin.Preview",L"",0,520,173,310,264,0);
+    add(L"BUTTON",L"管理个人词库…",WS_TABSTOP,520,455,310,36,105);
+    add(L"BUTTON",L"导出设置与词库备份…",WS_TABSTOP,520,503,310,36,106);
+    add(L"BUTTON",L"恢复备份…",WS_TABSTOP,520,551,310,36,107);
+    add(L"STATIC",L"备份为明文，包含手动词条与学习词频。\n请妥善保存；词库更新由你主动联网下载。",0,520,599,310,48,0);
     statusText=add(L"STATIC",L"正在准备本地引擎，首次启动可能需要稍候…",0,28,659,800,26,0);
     controls(w,false);
 #ifndef CHAOXI_SETTINGS_PREVIEW
@@ -147,22 +155,30 @@ static LRESULT CALLBACK proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
 #endif
     return 0;
   }
-  if(m==WM_TIMER&&!busy){Request q;Response r;if(exchange(q,r,100)){if(!ready)load(r);ready=true;controls(w,true);SetWindowTextW(statusText,r.storageError?L"输入正常，但本地词频保存失败，请检查磁盘权限。":L"引擎已就绪 · 新词可手动更新");KillTimer(w,1);}return 0;}
+  if(m==WM_TIMER&&!busy){Request q;Response r;if(exchange(q,r,100)){
+    if(!ready){Request caps;caps.op=Op::Capacity;Response capacity;
+      if(!exchange(caps,capacity,100)||capacity.importNew<1||capacity.importDuplicate<1){SetWindowTextW(statusText,L"请保存工作并注销重登，以加载支持容量设置的新版引擎。");return 0;}
+      load(r);SetWindowTextW(wordCapacityBox,std::to_wstring(capacity.importNew).c_str());SetWindowTextW(phraseCapacityBox,std::to_wstring(capacity.importDuplicate).c_str());}
+    ready=true;controls(w,true);SetWindowTextW(statusText,r.storageError?L"输入正常，但本地词频保存失败，请检查磁盘权限。":L"引擎已就绪 · 新词可手动更新");KillTimer(w,1);}return 0;}
   if(m==WM_APP+1){if(worker.joinable())worker.join();std::unique_ptr<Result> result((Result*)lp);busy=false;controls(w,true);
     if(result->ok&&result->op==Op::ImportPreview){
-      auto& r=result->response;bool fits=r.phraseCount+r.importNew<=4096;
-      std::wstring summary=L"可新增："+std::to_wstring(r.importNew)+L" 条\n重复或内置："+std::to_wstring(r.importDuplicate)+L" 条\n无效 / 不支持："+std::to_wstring(r.importInvalid)+L" 行\n当前个人词条："+std::to_wstring(r.phraseCount)+L" / 4096\n\n";
-      summary+=!r.importNew?L"没有可新增词条；当前文件中的有效词条已收录。":fits?L"使用文件预览时的快照，已有词条保留。是否导入？":L"超出 4096 条容量，本次不会导入。请先拆分词库或删除不需要的个人词条。";
+      auto& r=result->response;bool fits=r.phraseCount+r.importNew<=result->capacity.importDuplicate;
+      std::wstring summary=L"可新增："+std::to_wstring(r.importNew)+L" 条\n重复或内置："+std::to_wstring(r.importDuplicate)+L" 条\n无效 / 不支持："+std::to_wstring(r.importInvalid)+L" 行\n当前个人词条："+std::to_wstring(r.phraseCount)+L" / "+std::to_wstring(result->capacity.importDuplicate)+L"\n\n";
+      summary+=!r.importNew?L"没有可新增词条；当前文件中的有效词条已收录。":fits?L"使用文件预览时的快照，已有词条保留。是否导入？":L"超出配置的容量，本次不会导入。请先拆分词库或删除不需要的个人词条。";
       int answer=MessageBoxW(phraseWindow,summary.c_str(),L"确认批量导入",fits&&r.importNew?MB_YESNO|MB_DEFBUTTON2|MB_ICONQUESTION:MB_OK|MB_ICONINFORMATION);
       Request next;next.client=importClient;next.op=fits&&r.importNew&&answer==IDYES?Op::ImportCommit:Op::ImportCancel;apply(w,next);return 0;
     }
-    if(result->ok){if(result->op==Op::Configure||result->op==Op::Restore)load(result->response);
+    if(result->ok){if(result->op==Op::Configure||result->op==Op::Restore){load(result->response);
+        SetWindowTextW(wordCapacityBox,std::to_wstring(result->capacity.importNew).c_str());SetWindowTextW(phraseCapacityBox,std::to_wstring(result->capacity.importDuplicate).c_str());}
       if(result->op==Op::PhraseList||result->op==Op::PhrasePut||result->op==Op::PhraseDelete||result->op==Op::ImportCommit){personal=std::move(result->items);if(phraseWindow){SendMessageW(phraseList,LB_RESETCONTENT,0,0);for(auto& item:personal){auto text=item.second+L"    ["+item.first+L"]";SendMessageW(phraseList,LB_ADDSTRING,0,(LPARAM)text.c_str());}}}
       SetWindowTextW(statusText,result->op==Op::ImportCancel?L"未导入新词 · 原有数据保留":result->op==Op::ImportCommit?L"词库已批量导入 · 新词已生效":result->op==Op::Backup?L"备份已导出 · 包含设置、学习词频和手动词条":result->op==Op::Restore?L"备份已恢复 · 下次输入生效":L"操作完成 · 本地数据已保存");}
-    else{SetWindowTextW(statusText,L"操作未完成，原有数据保留。");MessageBoxW(phraseWindow?phraseWindow:w,result->error.empty()?L"操作未完成。词库需为 UTF-8，使用默认 Rime 列顺序或“词语<TAB>拼音”格式；不支持搜狗 SCEL。也请检查文件权限、4096 条容量或重试。":result->error.c_str(),L"潮汐拼音",MB_OK|MB_ICONWARNING);}return 0;}
+    else{SetWindowTextW(statusText,L"操作未完成，原有数据保留。");MessageBoxW(phraseWindow?phraseWindow:w,result->error.empty()?L"操作未完成。容量不能低于已有记录数，范围为 1–100000。词库需为 UTF-8，使用默认 Rime 列顺序或“词语<TAB>拼音”格式；不支持搜狗 SCEL。也请检查文件权限、词库容量或重试。":result->error.c_str(),L"潮汐拼音",MB_OK|MB_ICONWARNING);}return 0;}
   if(m==WM_COMMAND){
     if(LOWORD(wp)==102&&HIWORD(wp)==CBN_SELCHANGE)InvalidateRect(previewWindow,nullptr,TRUE);
-    if(LOWORD(wp)==103&&!busy){Request q;q.op=Op::Configure;q.key=fontValue();q.value=0;q.mask=0;
+    if(LOWORD(wp)==103&&!busy){BOOL validWords=FALSE,validPhrases=FALSE;
+      auto words=GetDlgItemInt(w,122,&validWords,FALSE),phrases=GetDlgItemInt(w,123,&validPhrases,FALSE);
+      if(!validWords||!validPhrases||words<1||words>MaxWordCapacity||phrases<1||phrases>MaxWordCapacity){MessageBoxW(w,L"两项容量均需填写 1–100000 的整数；不能低于已有词条数。",L"词库容量",MB_OK|MB_ICONINFORMATION);return 0;}
+      Request q;copyText(q.text,std::to_wstring(words)+L" "+std::to_wstring(phrases));q.op=Op::Configure;q.key=fontValue();q.value=0;q.mask=0;
       int selection=(int)SendMessageW(limitBox,CB_GETCURSEL,0,0);q.limit=selection==2?16:selection==1?8:4;
       if(SendMessageW(checks[0],BM_GETCHECK,0,0)==BST_CHECKED)q.value|=OptLearning;
       if(SendMessageW(checks[1],BM_GETCHECK,0,0)==BST_CHECKED)q.value|=OptAsciiPunct;

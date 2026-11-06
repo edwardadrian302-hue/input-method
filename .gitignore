@@ -5,3 +5,11 @@ dist/
 test-output/
 vendor/
 __pycache__/
+
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/**/.cxx/
+android/local.properties
+*.jks
+*.keystore

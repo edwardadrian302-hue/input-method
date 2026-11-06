@@ -16,7 +16,12 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 foreach ($name in @('ChaoxiPinyin.dll','ChaoxiPinyinBroker.exe','ChaoxiPinyinSettings.exe','rime.dll','data','licenses','README.md','THIRD_PARTY.md','uninstall.ps1')) {
   Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Recurse -Force
 }
-Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.6.0' -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.6.2' -Encoding UTF8
+$dataDir = Join-Path $target 'UserData'
+if ((Test-Path -LiteralPath $dataDir) -and ((Get-Item -LiteralPath $dataDir).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'UserData 不能是目录链接。' }
+New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+& icacls.exe $dataDir /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+if ($LASTEXITCODE -ne 0) { throw '无法设置 UserData 写入权限。' }
 $dll = Join-Path $target 'ChaoxiPinyin.dll'
 $proc = Start-Process -FilePath "$env:SystemRoot\System32\regsvr32.exe" -ArgumentList @('/s', ('"' + $dll + '"')) -WindowStyle Hidden -Wait -PassThru
 if ($proc.ExitCode -ne 0) { throw "注册失败，退出码 $($proc.ExitCode)。文件已保留供检查。" }

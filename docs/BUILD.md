@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File scripts/prepare-installer.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
 ```
 
-第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.0-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
+第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.2-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
 
 安装脚本是 `scripts/installer.iss`，可修改版本、默认目录和安装内容。安装器包含注册和反注册、目录选择、开始菜单入口以及系统卸载项，安装时没有下载步骤。安装器自带程序清单要求管理员权限。不会更改默认输入法或强制关闭浏览器；被占用 DLL 卸载时可能延迟至重启删除。旧脚本版升级使用原目录；EXE 版变更目录需先卸载。可继续运行 `scripts/package.ps1` 生成 ZIP 备用包。
 
@@ -56,3 +56,13 @@ Rime 方案、prism、custom 配置统一命名为 `chaoxipinyin`；安装标记
 `build/tests/SettingsPreview.exe` 使用隐藏窗口中的实际控件位置、文字与字号绘制布局示意图，输出 `build/settings-preview.bmp` 和 `build/phrases-preview.bmp`，不显示窗口、不启动 broker。它不代替真实 Windows 控件交互、文件选择对话框或多屏验收。
 
 词库解析测试：`build/tests/DictionaryTest.exe`。显式联网实测：`build/tests/DictionaryTest.exe --online`，只下载公开词库并在 build 写入结果；默认构建测试不联网。设置与该测试链接系统 WinHTTP。
+
+## 0.6.1 同目录数据
+
+运行时数据固定为安装目录的 `UserData`，包含 `profile.tsv`、`engine-v5` 与 `cache-v5`。首次启动 broker 时，在其互斥量内验证并复制旧 `%LOCALAPPDATA%\ChaoxiPinyin\profile.tsv`，新目录已有档案则跳过，不删除旧数据；损坏档案报错，不使用空档案覆盖。更早的 settings.ini / words.tsv 按既有逻辑迁移。缓存在新目录重建。
+
+EXE 与脚本安装只为 UserData 授予本机 Users 修改权限，不放宽二进制目录权限。数据属于该安装目录，本机多账户共用；本版针对个人电脑使用，不提供账户间隔离。卸载保留 UserData 和安装标记，便于原目录重装。不要在程序运行时移动数据；删除整个安装文件夹前先备份。
+
+测试 broker 的 `--data-dir` 跳过真实旧目录迁移。迁移回归只使用 test-output 下显式传入的模拟源与目标。
+
+0.6.2 另生成 chaoxipinyin_t9.schema.yaml；普通与九键方案共用固定词表，派生 prism 分开。Android 0.2.0 的工程、设置与构建说明见 ANDROID.md。升级后的档案使用 v2；应保留旧版备份供回退，不能让旧程序读取新格式。

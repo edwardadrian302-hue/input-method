@@ -6,7 +6,7 @@ struct DictionaryImport {
   int invalid=0,duplicates=0;
   static DictionaryImport parse(std::string data) {
     if(data.empty()||data.size()>16*1024*1024||data.find('\0')!=std::string::npos||
-       !MultiByteToWideChar(CP_UTF8,MB_ERR_INVALID_CHARS,data.data(),(int)data.size(),nullptr,0))throw std::runtime_error("Expected UTF-8 dictionary");
+       !validUtf8(data))throw std::runtime_error("Expected UTF-8 dictionary");
     if(data.compare(0,3,"\xef\xbb\xbf")==0)data.erase(0,3);
     bool yaml=false;{std::istringstream test(data);std::string s;while(std::getline(test,s)){if(!s.empty()&&s.back()=='\r')s.pop_back();if(s=="---"){yaml=true;break;}if(s.find('\t')!=std::string::npos)break;}}
     DictionaryImport result;std::istringstream in(data);std::string line;bool body=!yaml;
