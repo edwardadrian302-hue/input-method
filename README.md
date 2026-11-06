@@ -95,15 +95,15 @@
 
 - Windows 10/11 x64，使用普通用户的 Windows PowerShell 5.1 终端。
 - Git for Windows，用于拉取源码。
-- 已解压或安装的 7-Zip，需提供 `7z.exe` 的完整路径。
-- 将仓库放在 D 盘，例如 `D:\projects\input-method`。工具和下载缓存在仓库内的 `.tools`、`.downloads`，准备脚本要求项目位于 D 盘。
+- 可解压 ZIP 和 `.7z` 文件的工具。自动准备脚本调用 7-Zip 的 `7z.exe`，运行该脚本时需提供它的完整路径；使用其他解压工具的方式见下文。
+- 工具和下载缓存在仓库内的 `.tools`、`.downloads`。当前 `bootstrap.ps1` 和 `prepare-installer.ps1` 按项目原有的便携工具管理约定检查 D 盘，因此直接使用这两个脚本时，请将仓库放在 D 盘，例如 `D:\projects\input-method`。
 - 建议预留至少 5 GB 可用空间，并能访问 GitHub 下载固定版本工具。首次准备需要联网。
 
 脚本自动准备 LLVM-MinGW 20261020 UCRT x64 和 librime 1.17.0，并核对 SHA-256。Windows 构建直接使用仓库内的词库文件和预编译 Rime，无需先准备 Python、Visual Studio、Android SDK 或 `vendor` 源码。重新生成词库的开发流程见 [构建说明](docs/BUILD.md)。
 
 ### 拉取、准备和构建
 
-在 PowerShell 中执行，按本机实际位置修改 `7z.exe` 路径。
+下面是已验证的自动准备流程，使用 D 盘仓库和 7-Zip。在 PowerShell 中执行，按本机实际位置修改 `7z.exe` 路径。
 
 ```powershell
 git clone https://github.com/edwardadrian302-hue/input-method.git D:\projects\input-method
@@ -113,6 +113,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
 ```
 
 `build.ps1` 编译程序并运行引擎、词库解析、隔离 TSF 和设置布局检查。运行文件输出到 `dist`，测试程序输出到 `build/tests`，模拟词库和学习记录输出到 `test-output`。测试使用独立数据目录和随机管道，请在普通 Windows 用户终端执行。工具脚本不修改系统 PATH。
+
+### 使用其他解压工具或盘符
+
+7-Zip 用于解压下载的工具包，编译过程调用的是 LLVM-MinGW。也可以使用其他支持 ZIP 和 `.7z` 格式的工具手动准备依赖。
+
+1. 按 `downloads.lock.json` 中的地址下载两个工具包，并用 `Get-FileHash -Algorithm SHA256` 核对其中记录的摘要。
+2. 将 LLVM-MinGW 工具包解压到仓库 `.tools`，确保编译器位于 `.tools/llvm-mingw-20261020-ucrt-x86_64/bin/x86_64-w64-mingw32-clang++.exe`，保留工具包完整目录结构。
+3. 将 Rime 工具包解压到 `.tools/rime`，确保存在 `.tools/rime/dist/include/rime_api.h` 和 `.tools/rime/dist/lib/rime.dll`。
+4. 在仓库根目录运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1`。
+
+盘符限制来自上述两个准备脚本中的显式检查，Windows 编译脚本按仓库所在位置计算工具路径。使用 C、E 等其他盘符时，需要手动准备依赖，或先调整准备脚本的盘符检查。生成 EXE 还需按 `installer.lock.json` 校验并准备 Inno Setup 6.7.4，使 `.tools/inno-setup/ISCC.exe` 可用。手动准备完成后，跳过下一节的 `prepare-installer.ps1`，直接执行 `build-installer.ps1 -SkipBuild` 和 `package.ps1`。其他盘符和其他解压工具的组合尚未单独实测；目前完整验证的流程是 D 盘与 7-Zip。
 
 ### 生成安装包
 
