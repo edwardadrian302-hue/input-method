@@ -90,7 +90,10 @@ constexpr uint32_t kMagic=0x43503035;
 // Capacity uses value/limit for limits (value=0 queries); its response uses
 // importNew/importDuplicate for limits and importInvalid/phraseCount for counts.
 // Configure may carry both limits as two decimal integers in text, atomically.
-enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown,Configure,PhraseList,PhrasePut,PhraseDelete,Backup,Restore,ImportPreview,ImportCommit,ImportCancel,Capacity,NineKey };
+// LearnedList uses previousWord as an exclusive cursor, codes for decimal counts,
+// last for completion and importNew=1 as capability acknowledgement.
+// LearnedPut/Delete require previousWord and its count in code (optimistic check).
+enum class Op:uint32_t { Key=1,Clear,Destroy,Status,Learning,Erase,Font,Shutdown,Configure,PhraseList,PhrasePut,PhraseDelete,Backup,Restore,ImportPreview,ImportCommit,ImportCancel,Capacity,NineKey,LearnedList,LearnedPut,LearnedDelete };
 struct Request { uint32_t magic=kMagic; Op op=Op::Status; uint64_t client=0; int32_t key=0,mask=0,value=0,limit=4; wchar_t text[1024]={},code[128]={},previousWord[64]={},previousCode[128]={}; };
 struct Response {
   uint32_t magic=kMagic; int32_t ok=0,eaten=0,learning=1,font=12,page=0,last=1,count=0,highlight=0;

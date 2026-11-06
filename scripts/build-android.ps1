@@ -21,7 +21,7 @@ if (!$SkipNativeBuild) {
 }
 & $gradle -p (Join-Path $root 'android') --no-daemon :app:assembleDebug :app:lintDebug
 if ($LASTEXITCODE -ne 0) { throw 'Android APK build or lint failed.' }
-$apk = Join-Path $root 'build/ChaoxiPinyin-0.4.0-preview-android-arm64.apk'
+$apk = Join-Path $root 'build/ChaoxiPinyin-0.4.1-preview-android-arm64.apk'
 Copy-Item -LiteralPath (Join-Path $root 'android/app/build/outputs/apk/debug/app-debug.apk') -Destination $apk -Force
 Get-FileHash -LiteralPath $apk -Algorithm SHA256
 Write-Host 'APK created for manual installation. Back up .tools/android-signing privately for upgrades.'

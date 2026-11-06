@@ -33,11 +33,11 @@ final class KeyboardKey extends View {
         float w=getWidth(),h=getHeight();boolean flat=style==KeyboardLayout.FLAT||style==KeyboardLayout.CANDIDATE;
         box.set(density/2,density/2,w-density/2,h-density);
         if(!flat){
-            paint.setColor(0xffc5cbd3);box.offset(0,density);canvas.drawRoundRect(box,5*density,5*density,paint);box.offset(0,-density);
-            paint.setColor(isPressed()?0xffcbd7e2:style==KeyboardLayout.FUNCTION?0xffe0e5ed:0xfffcfcfd);
+            paint.setColor(0xffcbd5cb);box.offset(0,density);canvas.drawRoundRect(box,5*density,5*density,paint);box.offset(0,-density);
+            paint.setColor(isPressed()?0xffcee7d4:style==KeyboardLayout.FUNCTION?0xffe4ece5:0xfffcfcfd);
             canvas.drawRoundRect(box,5*density,5*density,paint);
         }else if(isPressed()){
-            paint.setColor(0xffdce3e8);canvas.drawRoundRect(box,5*density,5*density,paint);
+            paint.setColor(0xffdcebdd);canvas.drawRoundRect(box,5*density,5*density,paint);
         }
         int ink=accent?0xff247983:0xff24282f;
         if(action.equals("⌫")){drawDelete(canvas,w,h,ink);return;}

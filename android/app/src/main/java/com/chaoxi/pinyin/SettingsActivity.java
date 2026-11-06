@@ -39,15 +39,15 @@ public final class SettingsActivity extends Activity {
     }
     private EditText capacity(LinearLayout body,String title,String hint){
         label(body,title,15,INK);EditText edit=new EditText(this);edit.setInputType(InputType.TYPE_CLASS_NUMBER);edit.setSingleLine(true);edit.setSelectAllOnFocus(true);edit.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(6)});
-        edit.setTextSize(19);edit.setTextColor(INK);edit.setPadding(dp(12),0,dp(12),0);GradientDrawable field=background(0xfff3f5f7,9);field.setStroke(dp(1),0xffd8e0e5);edit.setBackground(field);body.addView(edit,new LinearLayout.LayoutParams(-1,dp(48)));label(body,hint,12,MUTED);return edit;
+        edit.setTextSize(19);edit.setTextColor(INK);edit.setPadding(dp(12),0,dp(12),0);GradientDrawable field=background(0xfff3f6f3,9);field.setStroke(dp(1),0xffd9e5da);edit.setBackground(field);body.addView(edit,new LinearLayout.LayoutParams(-1,dp(48)));label(body,hint,12,MUTED);return edit;
     }
     private Spinner choice(LinearLayout body,String title,String[] values){
         label(body,title,15,INK);Spinner spinner=new Spinner(this);spinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,values));body.addView(spinner,new LinearLayout.LayoutParams(-1,dp(48)));return spinner;
     }
-    private Button button(LinearLayout body,String text,Runnable click){Button b=new Button(this);b.setAllCaps(false);b.setText(text);b.setTextColor(ACCENT);b.setTextSize(15);b.setStateListAnimator(null);b.setElevation(0);b.setBackground(background(0xffeef3f5,10));b.setOnClickListener(v->click.run());LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,dp(48));params.setMargins(0,dp(5),0,dp(2));body.addView(b,params);return b;}
+    private Button button(LinearLayout body,String text,Runnable click){Button b=new Button(this);b.setAllCaps(false);b.setText(text);b.setTextColor(ACCENT);b.setTextSize(15);b.setStateListAnimator(null);b.setElevation(0);b.setBackground(background(0xffedf6ef,10));b.setOnClickListener(v->click.run());LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,dp(48));params.setMargins(0,dp(5),0,dp(2));body.addView(b,params);return b;}
     @Override public void onCreate(Bundle state){
         super.onCreate(state);getWindow().setDecorFitsSystemWindows(false);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xffedf1f4);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xfff4f7f4);
         root.setOnApplyWindowInsetsListener((view,insets)->{android.graphics.Insets bars=insets.getInsets(android.view.WindowInsets.Type.systemBars());int bottom=Math.max(bars.bottom,insets.getInsets(android.view.WindowInsets.Type.ime()).bottom);view.setPadding(bars.left,bars.top,bars.right,bottom);return insets;});
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(dp(16),dp(12),dp(16),dp(20));scroll.addView(body);
@@ -72,7 +72,7 @@ public final class SettingsActivity extends Activity {
         progress=new ProgressBar(this);feedbackRow.addView(progress,new LinearLayout.LayoutParams(dp(20),dp(20)));
         feedback=new TextView(this);feedback.setTextSize(14);feedback.setPadding(dp(8),dp(6),0,dp(6));feedback.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);feedbackRow.addView(feedback,new LinearLayout.LayoutParams(0,-2,1));
         retry=button(footer,"重新读取设置",this::load);retry.setVisibility(View.GONE);
-        save=button(footer,"保存设置",()->save(false));save.setTextColor(Color.WHITE);save.setBackgroundTintList(android.content.res.ColorStateList.valueOf(ACCENT));
+        save=button(footer,"保存设置",()->save(false));save.setTextColor(Color.WHITE);save.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xffa8ddb5));
         bind(KeyboardDefaults.state(0,0),KeyboardPreferences.nineKey(this));usage.setText("正在读取已用数量…");
         setContentView(root);watchChanges();busy(true,"正在读取已保存设置，当前显示默认值…");
     }

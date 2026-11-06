@@ -37,7 +37,7 @@ Engine::~Engine() { stop();
 void Engine::save() {writeProfileFile(home_/L"profile.tsv",profile_.encode());}
 void Engine::resetSessions() {
   for(auto& item:sessions_)api_->destroy_session(item.second);
-  sessions_.clear();choices_.clear();predictions_.clear();paging_.clear();nineMenus_.clear();
+  sessions_.clear();views_.clear();choices_.clear();predictions_.clear();paging_.clear();nineMenus_.clear();
 }
 void Engine::predict(uint64_t client,const std::wstring& word,Response& r) {
   auto& list=predictions_[client];list.clear();
@@ -123,6 +123,14 @@ Response Engine::handle(const Request& request) {
   if(q.magic!=kMagic)return r;
   // IPC strings must be terminated before any conversion or filesystem operation.
   if(!wmemchr(q.text,0,1024)||!wmemchr(q.code,0,128)||!wmemchr(q.previousWord,0,64)||!wmemchr(q.previousCode,0,128))return r;
+  if(q.op==Op::Key&&(q.key==0xff52||q.key==0xff54)){
+    auto it=views_.find(q.client);
+    if(it!=views_.end()&&it->second.count>0){
+      auto& view=it->second;
+      view.highlight=std::clamp(view.highlight+(q.key==0xff54?1:-1),0,view.count-1);
+      view.commit[0]=0;view.eaten=1;return view;
+    }
+  }
   auto replace=[&](Profile next){
     auto old=profile_;bool rebuild=((old.options^next.options)&OptCompletion)||old.fuzzy!=next.fuzzy;
     profile_=std::move(next);
@@ -134,6 +142,23 @@ Response Engine::handle(const Request& request) {
     if(q.value!=0){auto next=profile_;next.wordCapacity=q.value;next.phraseCapacity=q.limit;
       try{next.validateCapacities();}catch(...){return r;}replace(std::move(next));}
     r.importNew=profile_.wordCapacity;r.importDuplicate=profile_.phraseCapacity;r.importInvalid=(int)profile_.words.size();
+  }else if(q.op==Op::LearnedList){
+    auto it=profile_.words.upper_bound(q.previousWord);
+    for(;it!=profile_.words.end()&&r.count<9;++it){
+      copyText(r.codes[r.count],std::to_wstring(it->second));copyText(r.candidates[r.count++],it->first);
+    }
+    r.last=it==profile_.words.end();r.importNew=1;
+  }else if(q.op==Op::LearnedPut||q.op==Op::LearnedDelete){
+    auto found=profile_.words.find(q.previousWord);
+    if(found==profile_.words.end()||std::to_wstring(found->second)!=q.code)return r;
+    auto next=profile_;
+    if(q.op==Op::LearnedPut){
+      std::wstring word(q.text);
+      if(!chineseWord(word,16)||q.value<1||q.value>1000000)return r;
+      if(word!=q.previousWord&&next.words.count(word))return r;
+      next.words.erase(q.previousWord);next.words[word]=q.value;
+    }else next.words.erase(q.previousWord);
+    replace(std::move(next));r.importNew=1;
   }else if(q.op==Op::Configure) {
     if(q.limit!=4&&q.limit!=8&&q.limit!=16)return r;
     auto next=profile_;
@@ -169,13 +194,14 @@ Response Engine::handle(const Request& request) {
     if(q.key<0||q.key>=(int)profile_.phrases.size()) {if(!profile_.phrases.empty())return r;}
     else {auto it=profile_.phrases.begin();std::advance(it,q.key);for(;it!=profile_.phrases.end()&&r.count<9;++it){copyText(r.codes[r.count],wide(it->first.first.c_str()));copyText(r.candidates[r.count++],it->first.second);}}
   }else if(q.op==Op::Destroy) {
-    auto it=sessions_.find(q.client);if(it!=sessions_.end()){api_->destroy_session(it->second);sessions_.erase(it);}choices_.erase(q.client);predictions_.erase(q.client);paging_.erase(q.client);nineMenus_.erase(q.client);
+    auto it=sessions_.find(q.client);if(it!=sessions_.end()){api_->destroy_session(it->second);sessions_.erase(it);}views_.erase(q.client);choices_.erase(q.client);predictions_.erase(q.client);paging_.erase(q.client);nineMenus_.erase(q.client);
   }else if(q.op==Op::Clear||q.op==Op::Key) {
     auto id=session(q.client);auto& choices=choices_[q.client];auto& suggestions=predictions_[q.client];auto& paging=paging_[q.client];auto& nine=nineMenus_[q.client];
     std::wstring committed,punctuation;bool selectedDirect=false;
     if(q.op==Op::Clear){api_->clear_composition(id);choices.clear();suggestions.clear();paging=Paging{};nine.clear();}
     else {
-      int key=q.key;int selected=key==' '?0:(key>='1'&&key<='9'?key-'1':-1);
+      int key=q.key;auto view=views_.find(q.client);int highlighted=view==views_.end()?0:view->second.highlight;
+      int selected=key==' '?highlighted:(key>='1'&&key<='9'?key-'1':-1);
       bool next=key=='='||key==0xff56,previous=key=='-'||key==0xff55;
       if(!nineKey_&&(next||previous)&&api_->get_input(id)&&*api_->get_input(id)){
         if(previous&&paging.page>0)--paging.page;
@@ -196,7 +222,7 @@ Response Engine::handle(const Request& request) {
         const std::wstring chinese=L"，。；：！？（）【】、\\《》—";
         auto pos=key>=32&&key<=126?symbols.find((char)key):std::string::npos;
         auto choose=[&](int n){auto choice=choices[n];if(choice.index<0){committed=choice.text;api_->clear_composition(id);}else if(choice.absolute)api_->select_candidate(id,choice.index);else api_->select_candidate_on_current_page(id,choice.index);if(nineKey_)nine.clear();};
-        if(input&&*input&&pos!=std::string::npos){if(!choices.empty())choose(0);else api_->commit_composition(id);}
+        if(input&&*input&&pos!=std::string::npos){if(!choices.empty())choose(std::clamp(highlighted,0,(int)choices.size()-1));else api_->commit_composition(id);}
         if(pos!=std::string::npos){punctuation=(profile_.options&OptAsciiPunct)?std::wstring(1,(wchar_t)key):std::wstring(1,chinese[pos]);r.eaten=1;}
         else if(selected>=0&&selected<(int)choices.size()&&input&&*input){choose(selected);r.eaten=1;}
         else if(input&&strlen(input)>=120&&key>=32&&key<=126&&key!=' ')r.eaten=1;
@@ -342,5 +368,7 @@ Response Engine::handle(const Request& request) {
     if(q.op==Op::Key&&!committed.empty()&&punctuation.empty()&&!*r.preedit)predict(q.client,committed,r);
   }
   r.learning=profile_.learning;r.font=profile_.font;r.options=profile_.options;r.fuzzy=profile_.fuzzy;r.limit=profile_.limit;
-  r.phraseCount=(int)profile_.phrases.size();r.storageError=storageError_;r.ok=1;return r;
+  r.phraseCount=(int)profile_.phrases.size();r.storageError=storageError_;r.ok=1;
+  if(q.op==Op::Key||q.op==Op::Clear)views_[q.client]=r;
+  return r;
 }

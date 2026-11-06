@@ -121,7 +121,7 @@ class Service final:public ITfTextInputProcessorEx,public ITfKeyEventSink,public
     if(english_ || (GetKeyState(VK_CAPITAL)&1))return false;
     int key=translate(vk,lp);
     if(*view_.preedit)return key!=0;
-    if(view_.prediction&&(key==' '||key==0xff1b||(key>='1'&&key<'1'+view_.count)))return true;
+    if(view_.prediction&&(key==' '||key==0xff52||key==0xff54||key==0xff1b||(key>='1'&&key<'1'+view_.count)))return true;
     return (key>='a' && key<='z') || (key>='A' && key<='Z') || (key && std::string(",.!?:;\"'()[]/\\<>_").find((char)key)!=std::string::npos);
   }
   void toggleMode(bool raw=false) {

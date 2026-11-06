@@ -19,7 +19,7 @@ final class KeyboardPanel extends ViewGroup {
     private final Consumer<String> listener;
     private KeyboardLayout.Layout layout;
     private final float density;
-    KeyboardPanel(Context context,Consumer<String> listener){super(context);this.listener=listener;density=getResources().getDisplayMetrics().density;setBackgroundColor(0xffd5d9df);update(false,0,false,false);}
+    KeyboardPanel(Context context,Consumer<String> listener){super(context);this.listener=listener;density=getResources().getDisplayMetrics().density;setBackgroundColor(0xffdce3dc);update(false,0,false,false);}
     void update(boolean nine,int page,boolean english,boolean uppercase){
         cancelTouches();this.nine=nine;this.page=page;this.english=english;this.uppercase=uppercase;
         rowHeight=KeyboardLayout.rowHeight(getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE,nine,page,english);
@@ -38,7 +38,7 @@ final class KeyboardPanel extends ViewGroup {
         boolean show=nine&&!english&&page==KeyboardLayout.LETTERS&&(spellings.length>0||!prefix.isEmpty());
         for(int i=0;i<layout.keys.size();i++)if(layout.keys.get(i).style==KeyboardLayout.PUNCTUATION)getChildAt(i).setVisibility(show?View.INVISIBLE:View.VISIBLE);
         if(!show)return;
-        spellingRail=new ScrollView(getContext());spellingRail.setVerticalScrollBarEnabled(true);spellingRail.setBackgroundColor(0xffeef1f5);
+        spellingRail=new ScrollView(getContext());spellingRail.setVerticalScrollBarEnabled(true);spellingRail.setBackgroundColor(0xffedf4ee);
         LinearLayout column=new LinearLayout(getContext());column.setOrientation(LinearLayout.VERTICAL);spellingRail.addView(column);
         if(!prefix.isEmpty()){
             addSpelling(column,"-","撤销");

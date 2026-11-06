@@ -141,6 +141,8 @@ int wmain(){
     configure(OptCompletion|OptLearning|OptCorrection);require(std::wstring(type("nihao").candidates[0])==L"你好","correction preserves exact first candidate");
     configure(OptCompletion|OptLearning|OptPrediction);
     type("zhongguo");r=key(' ');require(r.prediction&&r.count>0&&!*r.preedit&&std::wstring(r.commit)==L"中国","prediction offers suffixes without a composition");
+    r=key(0xff54);require(r.prediction&&r.eaten&&!*r.commit,"arrow on prediction does not repeat previous committed text");
+    r=key(0xff52);
     auto suffix=std::wstring(r.candidates[0]);require(std::wstring(key(' ').commit)==suffix,"prediction appends suffix only");
     type("zhongguo");key(' ');r=key(0xff1b);require(!r.prediction&&!*r.preedit&&!*r.commit&&r.eaten,"Escape dismisses prediction without deleting committed text");
     type("zhongguo");key(' ');r=key('n');require(!r.prediction&&*r.preedit&&!*r.commit,"typing letters starts next composition instead of accepting prediction");
@@ -212,6 +214,21 @@ int wmain(){
     auto shortPage=type("vzzzzzzzzzzzzzzzzz");
     require(shortPage.last&&shortPage.count>0&&shortPage.count<9,"a genuinely exhausted candidate stream may have fewer than nine items");
     auto afterLast=key('=');require(afterLast.page==0&&afterLast.count==shortPage.count,"next on the last page does not create an empty page");
+    auto arrowPage=type("y");auto arrowSecond=std::wstring(arrowPage.candidates[1]);
+    r=key(0xff54);require(r.eaten&&r.highlight==1&&!*r.commit&&r.page==0,"Down moves merged candidate highlight without committing");
+    r=key(0xff52);require(r.highlight==0&&!*r.commit,"Up returns to first merged candidate");
+    r=key(0xff52);require(r.highlight==0,"Up at first candidate stays in range");
+    key(0xff54);require(std::wstring(key(' ').commit)==arrowSecond,"space commits highlighted merged candidate");
+    arrowPage=type("y");key(0xff54);require(std::wstring(key('1').commit)==arrowPage.candidates[0],"numeric selection remains absolute after moving highlight");
+    type("y");arrowPage=key('=');arrowSecond=arrowPage.candidates[1];
+    r=key(0xff54);require(r.page==1&&r.highlight==1,"Down preserves merged page two");
+    require(std::wstring(key(' ').commit)==arrowSecond,"space uses highlighted absolute candidate on page two");
+    type("y");for(int i=0;i<20;++i)r=key(0xff54);
+    require(r.highlight==r.count-1,"Down at final row stays in range");
+    r=key('n');require(r.highlight==0,"editing input resets highlight");
+    type("buil");r=key(0xff54);require(std::wstring(r.candidates[r.highlight])==L"buil","Down can highlight literal English entry");
+    require(std::wstring(key(' ').commit)==L"buil","space commits highlighted English entry");
+    op(Op::Clear);r=key(0xff54);require(!r.count&&!*r.commit,"cleared composition cannot revive stale candidate view");
     // Manual candidates and all original candidates remain in the same stream.
 
     configure(OptCompletion|OptLearning);auto original=type("nihao");std::vector<std::wstring> baseline;
@@ -359,6 +376,38 @@ int wmain(){
     typeNine("64426");engine->setNineKey(false);r=type("nihao");
     require(std::wstring(r.candidates[0])==L"你好","switching back to 26 keys preserves normal pinyin");
     require(contains(type("buil"),L"build"),"English completion works after switching away from nine keys");
+    Profile learnedFixture;
+    for(int i=0;i<12;++i)learnedFixture.words[std::wstring(L"测试")+wchar_t(0x4e00+i)]=i+1;
+    auto learnedFile=home/L"learned-fixture.cxbackup";writeProfileFile(learnedFile,learnedFixture.encode());
+    Request restoreLearned;restoreLearned.op=Op::Restore;copyText(restoreLearned.text,learnedFile.wstring());
+    require(engine->handle(restoreLearned).ok,"restore learned management fixture");
+    Request learnedList;learnedList.op=Op::LearnedList;
+    r=engine->handle(learnedList);require(r.ok&&r.importNew==1&&r.count==9&&!r.last,"learned list first page and capability marker");
+    auto originalWord=std::wstring(r.candidates[0]),originalCount=std::wstring(r.codes[0]);
+    auto duplicateWord=std::wstring(r.candidates[1]);
+    copyText(learnedList.previousWord,r.candidates[8]);
+    auto tail=engine->handle(learnedList);require(tail.count==3&&tail.last,"learned list exclusive cursor reaches final page");
+    Request editLearned;editLearned.op=Op::LearnedPut;copyText(editLearned.previousWord,originalWord);copyText(editLearned.code,originalCount);
+    copyText(editLearned.text,duplicateWord);editLearned.value=42;
+    require(!engine->handle(editLearned).ok,"learned rename rejects existing destination");
+    copyText(editLearned.text,L"学习测试");editLearned.value=0;
+    require(!engine->handle(editLearned).ok,"learned edit rejects zero count");
+    editLearned.value=42;copyText(editLearned.code,L"999");
+    require(!engine->handle(editLearned).ok,"learned edit rejects stale source count");
+    copyText(editLearned.code,originalCount);
+    HANDLE learnedLock=CreateFileW((advanced/L"profile.tsv").c_str(),GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);
+    require(learnedLock!=INVALID_HANDLE_VALUE,"lock profile for learned edit rollback");
+    bool learnedFailed=false;try{engine->handle(editLearned);}catch(...){learnedFailed=true;}CloseHandle(learnedLock);
+    require(learnedFailed,"learned edit reports atomic save failure");
+    Request firstLearned;firstLearned.op=Op::LearnedList;r=engine->handle(firstLearned);
+    require(std::wstring(r.candidates[0])==originalWord&&std::wstring(r.codes[0])==originalCount,"failed learned edit preserves in-memory record");
+    require(engine->handle(editLearned).ok,"learned rename and count edit succeed");
+    engine.reset();engine=std::make_unique<Engine>(root,advanced);
+    auto persistedLearned=Profile::decode(readProfileFile(advanced/L"profile.tsv"));
+    require(persistedLearned.words.count(originalWord)==0&&persistedLearned.words.at(L"学习测试")==42,"learned edits persist across restart");
+    Request deleteLearned;deleteLearned.op=Op::LearnedDelete;copyText(deleteLearned.previousWord,L"学习测试");copyText(deleteLearned.code,L"42");
+    require(engine->handle(deleteLearned).ok&&!engine->handle(deleteLearned).ok,"learned delete succeeds once and stale retry preserves state");
+    require(Profile::decode(readProfileFile(advanced/L"profile.tsv")).words.count(L"学习测试")==0,"learned deletion is saved");
     std::cout<<"PASS: "<<checks<<" engine checks. Test data: "<<utf8(home.wstring())<<"\n";return 0;
   }catch(const std::exception& e){std::cerr<<"FAIL after "<<checks<<" checks: "<<e.what()<<"\n";return 1;}
 }

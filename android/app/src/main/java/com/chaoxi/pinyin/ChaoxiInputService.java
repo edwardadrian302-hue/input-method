@@ -32,7 +32,7 @@ public final class ChaoxiInputService extends InputMethodService {
     private static final int CLEAR = 2, KEY = 1;
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     @Override public View onCreateInputView() {
-        panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setBackgroundColor(0xffd5d9df);
+        panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setBackgroundColor(0xffdce3dc);
         status=new TextView(this);status.setTextSize(13);status.setTextColor(0xff45515c);status.setSingleLine(true);status.setPadding(dp(12),dp(2),dp(12),0);panel.addView(status,new LinearLayout.LayoutParams(-1,dp(24)));
         LinearLayout toolbar=new LinearLayout(this);toolbar.setGravity(android.view.Gravity.CENTER_VERTICAL);toolbar.setPadding(dp(4),0,dp(4),0);
         View spacer=new View(this);toolbar.addView(spacer,new LinearLayout.LayoutParams(0,dp(1),1));
@@ -140,7 +140,7 @@ public final class ChaoxiInputService extends InputMethodService {
                 final int index=i;
                 KeyboardKey key=candidateKey(state.candidates[i],index);key.accent(index==0);
                 LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-2,dp(42));spacing.setMargins(dp(3),0,dp(3),0);candidates.addView(key,spacing);
-                View divider=new View(this);divider.setBackgroundColor(0xffbec6cf);candidates.addView(divider,new LinearLayout.LayoutParams(dp(1),dp(16)));
+                View divider=new View(this);divider.setBackgroundColor(0xffc4cec5);candidates.addView(divider,new LinearLayout.LayoutParams(dp(1),dp(16)));
                 KeyboardKey tile=candidateKey(state.candidates[i],index);tile.accent(index==0);
                 GridLayout.LayoutParams cell=new GridLayout.LayoutParams(GridLayout.spec(i/3),GridLayout.spec(i%3,1f));cell.width=0;cell.height=dp(56);cell.setMargins(dp(3),dp(3),dp(3),dp(3));expanded.addView(tile,cell);
             }

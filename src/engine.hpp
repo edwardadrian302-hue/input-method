@@ -17,6 +17,7 @@ class Engine {
   struct Choice {int index;std::wstring text;bool absolute=false;};
   std::map<uint64_t,NineKeyMenu> nineMenus_;
   std::map<uint64_t,std::vector<Choice>> choices_;
+  std::map<uint64_t,Response> views_;
   std::map<uint64_t,std::vector<std::wstring>> predictions_;
   struct Paging {int page=0,pages=1,rimePage=0;bool last=true;};
   std::map<uint64_t,Paging> paging_;

@@ -21,7 +21,7 @@ public:
   HRESULT STDMETHODCALLTYPE GetIcon(HICON* p)override{
     if(!p)return E_POINTER;HDC screen=GetDC(nullptr),dc=CreateCompatibleDC(screen),maskDC=CreateCompatibleDC(screen);
     HBITMAP color=CreateCompatibleBitmap(screen,32,32),mask=CreateBitmap(32,32,1,1,nullptr);auto old=SelectObject(dc,color);auto oldMask=SelectObject(maskDC,mask);PatBlt(maskDC,0,0,32,32,BLACKNESS);
-    RECT rect={0,0,32,32};auto bg=CreateSolidBrush(RGB(32,108,122));FillRect(dc,&rect,bg);DeleteObject(bg);SetTextColor(dc,RGB(255,255,255));SetBkMode(dc,TRANSPARENT);
+    RECT rect={0,0,32,32};auto bg=CreateSolidBrush(RGB(168,221,181));FillRect(dc,&rect,bg);DeleteObject(bg);SetTextColor(dc,RGB(255,255,255));SetBkMode(dc,TRANSPARENT);
     HFONT font=CreateFontW(-25,0,0,0,FW_MEDIUM,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,ANTIALIASED_QUALITY,0,L"Microsoft YaHei UI");auto oldFont=SelectObject(dc,font);DrawTextW(dc,english?L"英":L"中",1,&rect,DT_CENTER|DT_VCENTER|DT_SINGLELINE);SelectObject(dc,oldFont);DeleteObject(font);
     ICONINFO info={TRUE,0,0,mask,color};*p=CreateIconIndirect(&info);SelectObject(dc,old);SelectObject(maskDC,oldMask);DeleteObject(color);DeleteObject(mask);DeleteDC(dc);DeleteDC(maskDC);ReleaseDC(nullptr,screen);return *p?S_OK:E_FAIL;
   }

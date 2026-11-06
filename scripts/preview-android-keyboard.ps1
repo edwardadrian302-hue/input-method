@@ -24,7 +24,7 @@ function Caption($text,$x,$y,$w,$h,$size,$color){
  if($measured -gt ($w-6)){ $font.Dispose();$font=[Drawing.Font]::new('Microsoft YaHei UI',[single]($size*($w-6)/$measured),[Drawing.FontStyle]::Regular,[Drawing.GraphicsUnit]::Pixel) }
  $b=Brush $color;$g.DrawString($text,$font,$b,[Drawing.RectangleF]::new($x,$y,$w,$h),$format);$b.Dispose();$font.Dispose();$format.Dispose()
 }
-$g.Clear([Drawing.ColorTranslator]::FromHtml('#D5D9DF'))
+$g.Clear([Drawing.ColorTranslator]::FromHtml('#DCE3DC'))
 Caption '键盘' ($model.width-173) 0 45 42 14 '#24282F'
 Caption '设置' ($model.width-128) 0 45 42 14 '#24282F'
 Caption '切换' ($model.width-83) 0 43 42 14 '#24282F'
@@ -32,7 +32,7 @@ Caption '⌄' ($model.width-40) 0 36 42 20 '#24282F'
 if($DemoNineInput){
  # Illustration of the 7664 core regression fixture, not a device capture.
  # Move the toolbar down below preedit, matching the service's view order.
- $g.Clear([Drawing.ColorTranslator]::FromHtml('#D5D9DF'))
+ $g.Clear([Drawing.ColorTranslator]::FromHtml('#DCE3DC'))
  Caption 'rong' 4 0 80 24 13 '#45515C'
  Caption '键盘' ($model.width-173) 24 45 42 14 '#24282F'
  Caption '设置' ($model.width-128) 24 45 42 14 '#24282F'
@@ -44,8 +44,8 @@ if($DemoNineInput){
 foreach($key in $model.keys){
  if($DemoNineInput -and $key.style -eq 4){continue}
  $x=[single]$key.x;$y=[single]($key.y+42+$extra);$w=[single]$key.width;$h=[single]$key.height
- Round ($x+.5) ($y+1.5) ($w-1) ($h-1.5) '#C5CBD3'
- Round ($x+.5) ($y+.5) ($w-1) ($h-1.5) $(if($key.style -eq 1){'#E0E5ED'}else{'#FCFCFD'})
+ Round ($x+.5) ($y+1.5) ($w-1) ($h-1.5) '#CBD5CB'
+ Round ($x+.5) ($y+.5) ($w-1) ($h-1.5) $(if($key.style -eq 1){'#E4ECE5'}else{'#FCFCFD'})
  if($key.action -eq '⌫' -or $key.action -eq '↵'){
   $pen=[Drawing.Pen]::new([Drawing.ColorTranslator]::FromHtml('#24282F'),1.6);$cx=$x+$w/2;$cy=$y+$h/2;$s=11
   if($key.action -eq '⌫'){
@@ -58,7 +58,7 @@ foreach($key in $model.keys){
  else{Caption $key.label $x $y $w $h $(if($key.style -eq 4){[Math]::Min(29,$h*.80)}elseif($key.label.Length -gt 3){17}else{22}) '#24282F'}
 }
 if($DemoNineInput){
- Round 4 (46+$extra) 48 157 '#EEF1F5'
+ Round 4 (46+$extra) 48 157 '#EDF4EE'
  Caption 'rong' 4 (46+$extra) 48 40 14 '#24282F'
  Caption 'song' 4 (86+$extra) 48 40 14 '#24282F'
 }

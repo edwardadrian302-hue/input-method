@@ -27,7 +27,7 @@ public:
     label(v.prediction?L"联想 · 空格或数字选择":v.preedit,{px(14),px(3),width-px(14),header},RGB(132,135,130));
     for(int i=0;i<v.count;++i){
       int top=header+i*row;
-      if(i==v.highlight){auto pen=CreatePen(PS_NULL,0,0);auto oldPen=SelectObject(dc,pen);auto brush=CreateSolidBrush(RGB(218,232,191));auto oldBrush=SelectObject(dc,brush);RoundRect(dc,px(6),top,width-px(6),top+row,px(8),px(8));SelectObject(dc,oldBrush);SelectObject(dc,oldPen);DeleteObject(brush);DeleteObject(pen);}
+      if(i==v.highlight){auto pen=CreatePen(PS_NULL,0,0);auto oldPen=SelectObject(dc,pen);auto brush=CreateSolidBrush(RGB(206,235,211));auto oldBrush=SelectObject(dc,brush);RoundRect(dc,px(6),top,width-px(6),top+row,px(8),px(8));SelectObject(dc,oldBrush);SelectObject(dc,oldPen);DeleteObject(brush);DeleteObject(pen);}
       SelectObject(dc,small_);label(std::to_wstring(i+1),{px(16),top,px(34),top+row},i==v.highlight?RGB(139,157,115):RGB(183,185,181));
       SelectObject(dc,text_);label(v.candidates[i],{px(36),top,width-px(15),top+row},RGB(39,43,36));
     }
