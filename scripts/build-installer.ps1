@@ -10,4 +10,4 @@ if (!$SkipBuild) {
 }
 & $compiler scripts/installer.iss
 if ($LASTEXITCODE -ne 0) { throw 'EXE 安装包编译失败。' }
-Get-FileHash build/ChaoxiPinyin-0.6.2-preview-win-x64-Setup.exe -Algorithm SHA256
+Get-FileHash build/ChaoxiPinyin-0.6.3-preview-win-x64-Setup.exe -Algorithm SHA256

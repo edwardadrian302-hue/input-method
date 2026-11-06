@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File scripts/prepare-installer.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
 ```
 
-第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.2-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
+第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.3-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
 
 安装脚本是 `scripts/installer.iss`，可修改版本、默认目录和安装内容。安装器包含注册和反注册、目录选择、开始菜单入口以及系统卸载项，安装时没有下载步骤。安装器自带程序清单要求管理员权限。不会更改默认输入法或强制关闭浏览器；被占用 DLL 卸载时可能延迟至重启删除。旧脚本版升级使用原目录；EXE 版变更目录需先卸载。可继续运行 `scripts/package.ps1` 生成 ZIP 备用包。
 

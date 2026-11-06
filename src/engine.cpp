@@ -86,7 +86,7 @@ void Engine::start() {
   shared_=utf8((root_/L"data").wstring()); user_=utf8((home_/L"engine-v5").wstring()); staging_=utf8((home_/L"cache-v5").wstring());
   RIME_STRUCT(RimeTraits,t); t.shared_data_dir=shared_.c_str(); t.user_data_dir=user_.c_str();
   t.prebuilt_data_dir=shared_.c_str(); t.staging_dir=staging_.c_str();
-  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.6.2";
+  t.distribution_name="ChaoxiPinyin"; t.distribution_code_name="chaoxipinyin"; t.distribution_version="0.6.3";
   t.app_name="rime.chaoxipinyin"; t.min_log_level=3; t.log_dir="";
   static const char* modules[]={"default",nullptr}; t.modules=modules;
   api_->setup(&t); api_->initialize(&t);
@@ -177,7 +177,12 @@ Response Engine::handle(const Request& request) {
     else {
       int key=q.key;int selected=key==' '?0:(key>='1'&&key<='9'?key-'1':-1);
       bool next=key=='='||key==0xff56,previous=key=='-'||key==0xff55;
-      if(nineKey_&&!nine.prefix.empty()&&(next||previous)){nine.page=std::max(0,nine.page+(next?1:-1));selectedDirect=true;r.eaten=1;}
+      if(!nineKey_&&(next||previous)&&api_->get_input(id)&&*api_->get_input(id)){
+        if(previous&&paging.page>0)--paging.page;
+        else if(next&&!paging.last)++paging.page;
+        selectedDirect=true;r.eaten=1;
+      }
+      else if(nineKey_&&!nine.prefix.empty()&&(next||previous)){nine.page=std::max(0,nine.page+(next?1:-1));selectedDirect=true;r.eaten=1;}
       else if(paging.rimePage==0&&((next&&paging.page+1<paging.pages)||(previous&&paging.page>0))){paging.page+=next?1:-1;selectedDirect=true;r.eaten=1;}
       else if(!next&&!previous)paging.page=0;
       if(!suggestions.empty()){
@@ -243,24 +248,34 @@ Response Engine::handle(const Request& request) {
         else preedit=letters(preedit);
       }
       copyText(r.preedit,wide(preedit.c_str()));r.page=cx.menu.page_no;r.last=cx.menu.is_last_page;r.highlight=0;
-      if(r.page==0&&paging.rimePage==1&&(q.key=='-'||q.key==0xff55))paging.page=std::max(0,paging.pages-1);
+      if(nineKey_&&r.page==0&&paging.rimePage==1&&(q.key=='-'||q.key==0xff55))paging.page=std::max(0,paging.pages-1);
       paging.rimePage=r.page;
       choices.clear();
-      if(nineKey_&&!nine.prefix.empty()){
+      if(!nineKey_){
+        // Read the original stream from its beginning regardless of the visible
+        // merged page. Keep absolute indices for later direct selection.
+        RimeCandidateListIterator it{};
+        if(api_->candidate_list_begin(id,&it)){
+          for(int i=0;i<9&&api_->candidate_list_next(&it);++i)choices.push_back({it.index,wide(it.candidate.text),true});
+          api_->candidate_list_end(&it);
+        }
+        r.page=0;
+      }else if(!nine.prefix.empty()){
         for(auto& item:nine.items)choices.push_back({item.index,item.text,true});
         r.page=nine.page;r.last=!nine.more;
       }else for(int i=0;i<std::min(9,cx.menu.num_candidates);++i)choices.push_back({i,wide(cx.menu.candidates[i].text)});
-      if(profile_.learning){
-        // Keep Rime's positions for complete sentences versus partial segments.
-        // Learned frequency only rearranges equal-length alternatives in their
-        // existing slots; a frequent single character cannot jump over a phrase.
+      auto rank=[&](std::vector<Choice>& list){
+        if(!profile_.learning)return;
+        // Learning may only rearrange equal-length positions within each
+        // original Rime block; retain sentence versus partial-word ordering.
         std::map<size_t,std::vector<size_t>> slots;
-        for(size_t i=0;i<choices.size();++i)slots[choices[i].text.size()].push_back(i);
-        for(auto& [length,indices]:slots){std::vector<Choice> group;for(auto i:indices)group.push_back(choices[i]);
+        for(size_t i=0;i<list.size();++i)slots[list[i].text.size()].push_back(i);
+        for(auto& [length,indices]:slots){std::vector<Choice> group;for(auto i:indices)group.push_back(list[i]);
           auto score=[&](const Choice& c){auto it=profile_.words.find(c.text);return it==profile_.words.end()?uint64_t(0):it->second;};
           std::stable_sort(group.begin(),group.end(),[&](auto& a,auto& b){return score(a)>score(b);});
-          for(size_t i=0;i<indices.size();++i)choices[indices[i]]=group[i];}
-      }
+          for(size_t i=0;i<indices.size();++i)list[indices[i]]=group[i];}
+      };
+      rank(choices);
       api_->free_context(&cx);
       auto raw=api_->get_input(id);std::string code;
       if(raw&&*raw){try{code=phraseCode(wide(raw));}catch(...){} }
@@ -290,7 +305,34 @@ Response Engine::handle(const Request& request) {
           choices.insert(choices.begin()+at,choice);++at;
         }
       }
-      if(nineKey_&&!nine.prefix.empty()){}
+      if(!nineKey_){
+        // Merge local suggestions once, then continue the native stream to fill
+        // the requested nine-item page plus one lookahead for last-page status.
+        const size_t first=static_cast<size_t>(paging.page)*9,needed=first+10;
+        std::set<std::wstring> seen;
+        for(auto& choice:choices)seen.insert(choice.text);
+        if(choices.size()<needed){
+          RimeCandidateListIterator it{};
+          if(api_->candidate_list_from_index(id,&it,9)){
+            bool ended=false;
+            while(choices.size()<needed&&!ended){
+              std::vector<Choice> block;
+              for(int i=0;i<9;++i){
+                if(!api_->candidate_list_next(&it)){ended=true;break;}
+                block.push_back({it.index,wide(it.candidate.text),true});
+              }
+              rank(block);
+              for(auto& choice:block)if(seen.insert(choice.text).second)choices.push_back(std::move(choice));
+            }
+            api_->candidate_list_end(&it);
+          }
+        }
+        paging.page=std::min(paging.page,choices.empty()?0:static_cast<int>((choices.size()-1)/9));
+        size_t begin=static_cast<size_t>(paging.page)*9,end=std::min(begin+9,choices.size());
+        paging.last=choices.size()<=end;r.page=paging.page;r.last=paging.last;
+        choices=std::vector<Choice>(choices.begin()+begin,choices.begin()+end);
+      }
+      else if(!nine.prefix.empty()){}
       else if(r.page==0){paging.pages=std::max(1,((int)choices.size()+8)/9);paging.page=std::clamp(paging.page,0,paging.pages-1);
         int first=paging.page*9,last=std::min(first+9,(int)choices.size());choices=std::vector<Choice>(choices.begin()+first,choices.begin()+last);
         r.page=paging.page;r.last=r.last&&paging.page+1==paging.pages;

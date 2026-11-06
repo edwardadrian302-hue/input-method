@@ -125,6 +125,17 @@ int wmain(){
     };
     chooseEnglish("build",L"build");chooseEnglish("buil",L"build");chooseEnglish("nihao",L"nihao");
     auto beforeChinese=store->text;for(char c:std::string("NIHAO"))key(c);key(VK_SPACE);check(store->text==beforeChinese+L"你好","Chinese space selection remains available after English candidates");
+    auto beforePaging=store->text;
+    Request pagingProbe;pagingProbe.client=988;pagingProbe.op=Op::Clear;Response pagingState;
+    check(exchange(pagingProbe,pagingState),"clear isolated paging probe");
+    pagingProbe.op=Op::Key;pagingProbe.key='y';check(exchange(pagingProbe,pagingState),"get y first page");
+    auto firstPagingWord=std::wstring(pagingState.candidates[0]);
+    pagingProbe.key=0xff56;check(exchange(pagingProbe,pagingState)&&pagingState.page==1&&pagingState.count==9,"y second page contains nine items over IPC");
+    auto ninthPagingWord=std::wstring(pagingState.candidates[8]);
+    key('Y');key(VK_NEXT);key('9');
+    check(store->text==beforePaging+ninthPagingWord,"TSF PageDown and numeric nine choose the filled second-page item exactly once");
+    beforePaging=store->text;key('Y');key(VK_NEXT);key(VK_PRIOR);key(VK_SPACE);
+    check(store->text==beforePaging+firstPagingWord,"TSF PageUp restores the original first page and space selection");
     q=Request{};q.op=Op::PhrasePut;copyText(q.code,L"zhong guo ce shi hou zhui");copyText(q.text,L"中国测试后缀");check(exchange(q,r),"add isolated prediction fixture");
     q=Request{};q.op=Op::Configure;q.value=OptCompletion|OptLearning|OptPrediction;q.key=12;check(exchange(q,r),"enable offline prediction");
     auto beforePrediction=store->text;
@@ -138,7 +149,7 @@ int wmain(){
     for(char c:std::string("ZHONGGUO"))key(c);key(VK_SPACE);afterChina=store->text;
     keys->OnKeyDown(ctx,VK_SHIFT,0,&shift);keys->OnKeyUp(ctx,VK_SHIFT,0,&shift);pump();
     check(store->text==afterChina,"mode switch dismisses prediction without accepting a suffix");
-    std::cout<<"PASS: TSF composition/commit/cancel/focus/disabled context/English mode, punctuation, Shift commit, language bar state and 100 IPC requests (keyboard and language-bar subscriptions mocked).\n";result=0;
+    std::cout<<"PASS: TSF composition/commit/cancel/focus/disabled context/English mode, punctuation, Shift commit, language bar state, nine-item merged paging and 100 IPC requests (keyboard and language-bar subscriptions mocked).\n";result=0;
   }catch(const std::exception& e){std::cerr<<"FAIL TSF: "<<e.what()<<"\n";result=1;}
   if(testBar)testBar->Release();if(keys)keys->Release();if(active)tip->Deactivate();if(tip)tip->Release();if(doc)doc->Pop(TF_POPF_ALL);if(ctx)ctx->Release();if(doc)doc->Release();if(store)store->Release();if(mgr){mgr->Deactivate();mgr->Release();}pump();
   if(dll){auto unload=(HRESULT(__stdcall*)())GetProcAddress(dll,"DllCanUnloadNow");if(unload && unload()!=S_OK){std::cerr<<"FAIL: leaked TSF object\n";result=1;}else FreeLibrary(dll);}

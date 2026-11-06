@@ -16,7 +16,7 @@ New-Item -ItemType Directory -Force -Path $target | Out-Null
 foreach ($name in @('ChaoxiPinyin.dll','ChaoxiPinyinBroker.exe','ChaoxiPinyinSettings.exe','rime.dll','data','licenses','README.md','THIRD_PARTY.md','uninstall.ps1')) {
   Copy-Item -LiteralPath (Join-Path $source $name) -Destination $target -Recurse -Force
 }
-Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.6.2' -Encoding UTF8
+Set-Content -LiteralPath (Join-Path $target 'chaoxipinyin-install.marker') -Value 'ChaoxiPinyin 0.6.3' -Encoding UTF8
 $dataDir = Join-Path $target 'UserData'
 if ((Test-Path -LiteralPath $dataDir) -and ((Get-Item -LiteralPath $dataDir).Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'UserData 不能是目录链接。' }
 New-Item -ItemType Directory -Force -Path $dataDir | Out-Null

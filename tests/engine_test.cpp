@@ -186,7 +186,34 @@ int wmain(){
     require(!contains(type("xi'an"),L"xi'an"),"pinyin separators are not treated as English words");
     r=type("nihao");int duplicates=0;for(int i=0;i<r.count;++i)if(std::wstring(r.candidates[i])==L"nihao")++duplicates;
     require(duplicates==1,"raw candidate appears once");
-    // Extra candidates have their own pages; none of the original first nine are lost.
+    // Local/English insertions share one continuous nine-item page stream.
+    configure(OptCompletion);
+    for(const char* input:{"y","nihao","buil","hello"}){
+      auto state=type(input);std::set<std::wstring> unique;
+      for(int pageIndex=0;pageIndex<6;++pageIndex){
+        require(state.page==pageIndex,"merged pages advance consecutively");
+        require(state.last||state.count==9,"every nonterminal merged page contains nine candidates");
+        for(int i=0;i<state.count;++i)require(unique.insert(state.candidates[i]).second,"merged pages do not duplicate candidates across boundaries");
+        if(state.last)break;
+        state=key('=');
+      }
+    }
+    auto firstY=type("y");auto secondY=key('=');
+    require(secondY.page==1&&secondY.count==9&&std::wstring(secondY.candidates[0])==L"眼","y second page fills the singleton spill with following Chinese candidates");
+    require(std::wstring(key('9').commit)==std::wstring(secondY.candidates[8]),"ninth candidate on a filled second page selects the correct absolute index");
+    type("y");key('=');auto thirdY=key('=');
+    require(thirdY.page==2&&thirdY.count==9,"y third page remains full after shifted boundaries");
+    auto returnY=key('-');bool sameY=returnY.count==secondY.count;
+    for(int i=0;i<returnY.count&&sameY;++i)sameY=std::wstring(returnY.candidates[i])==std::wstring(secondY.candidates[i]);
+    require(returnY.page==1&&sameY,"previous page restores exactly the same filled candidates");
+    auto zeroY=key('-');bool sameFirstY=zeroY.count==firstY.count;
+    for(int i=0;i<zeroY.count&&sameFirstY;++i)sameFirstY=std::wstring(zeroY.candidates[i])==std::wstring(firstY.candidates[i]);
+    require(zeroY.page==0&&sameFirstY,"returning to page zero preserves the original first choice and English placement");
+    auto shortPage=type("vzzzzzzzzzzzzzzzzz");
+    require(shortPage.last&&shortPage.count>0&&shortPage.count<9,"a genuinely exhausted candidate stream may have fewer than nine items");
+    auto afterLast=key('=');require(afterLast.page==0&&afterLast.count==shortPage.count,"next on the last page does not create an empty page");
+    // Manual candidates and all original candidates remain in the same stream.
+
     configure(OptCompletion|OptLearning);auto original=type("nihao");std::vector<std::wstring> baseline;
     for(int i=0;i<original.count;++i)baseline.push_back(original.candidates[i]);
     const wchar_t* custom[]={L"你好甲",L"你好乙",L"你好丙",L"你好丁",L"你好戊",L"你好己",L"你好庚",L"你好辛",L"你好壬",L"你好癸"};
@@ -196,7 +223,7 @@ int wmain(){
     bool preserved=true;for(auto& text:baseline)if(std::find(seen.begin(),seen.end(),text)==seen.end())preserved=false;
     for(auto text:custom)if(std::find(seen.begin(),seen.end(),text)==seen.end())preserved=false;
     require(preserved,"pagination preserves manual phrases and all original page candidates");
-    r=key('-');require(r.count>0,"previous page returns from native page to extra page");
+    r=key('-');require(r.count>0,"previous page returns within the merged candidate stream");
     auto chosen=std::wstring(r.candidates[0]);auto selectedResult=key('1');
     require(std::wstring(selectedResult.commit)==chosen||(*selectedResult.preedit&&!*selectedResult.commit),"paged candidate selects matching text or partial segment");
     Request badBackup;badBackup.op=Op::Restore;copyText(badBackup.text,bad.wstring());

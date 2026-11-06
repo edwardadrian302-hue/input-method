@@ -18,7 +18,7 @@ class Engine {
   std::map<uint64_t,NineKeyMenu> nineMenus_;
   std::map<uint64_t,std::vector<Choice>> choices_;
   std::map<uint64_t,std::vector<std::wstring>> predictions_;
-  struct Paging {int page=0,pages=1,rimePage=0;};
+  struct Paging {int page=0,pages=1,rimePage=0;bool last=true;};
   std::map<uint64_t,Paging> paging_;
   Profile profile_;Lexicon lexicon_;EnglishLexicon english_;
   DictionaryImport pendingImport_;uint64_t importOwner_=0,importTime_=0;
