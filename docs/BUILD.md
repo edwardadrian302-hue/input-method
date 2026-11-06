@@ -1,12 +1,12 @@
 # 构建
 
-构建工具目录：`D:\cursor\projects\input-method\.tools`。不修改系统 PATH，不在 C 盘安装 C++ 编译工具。
+构建工具位于 D 盘仓库目录下的 `.tools`，仓库路径可自行选择。不修改系统 PATH。首次构建的完整命令和环境要求见 [README](../README.md#从源码构建-windows-版)。
 
 采用 LLVM-MinGW 20261020 UCRT x64 便携工具链；Rime 采用官方 librime 1.17.0 Windows MSVC x64 二进制，通过稳定 C API 动态加载。构建时不使用 MSVC 导入库。当前构建不等于从源码重建所有依赖。
 
-准备源代码：按 `sources.lock.json` 中的 URL 和 commit checkout 到 `vendor/librime`。另运行 `scripts/prepare-dictionary.ps1` 获取词库锁指定版本，再执行 `python scripts/prepare_data.py` 生成方案并复制词库和许可。
+基础 Windows 构建直接使用已提交的 `data` 和预编译 Rime，无需准备 `vendor/librime`。仅在研究依赖源码时按 `sources.lock.json` checkout 固定提交。仅在重新生成词库时运行 `scripts/prepare-dictionary.ps1`，再用 Python 运行 `scripts/prepare_data.py`。
 
-准备工具：将官方 `llvm-mingw-20261020-ucrt-x86_64.zip` 解压到 `.tools`；将官方 `rime-33e7814-Windows-msvc-x64.7z` 解压到 `.tools/rime`。
+准备工具：运行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1 -SevenZip "C:\Program Files\7-Zip\7z.exe"`，按实际位置修改 7-Zip 路径。脚本下载并校验锁定版本的工具，解压到项目 `.tools`。
 
 运行 `powershell -ExecutionPolicy Bypass -File scripts/build.ps1`。输出在 `dist`，自动运行真实 Rime 引擎集成测试。测试数据仅创建在工程 `test-output` 的独立运行目录中，不碰真实用户词频。
 
@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File scripts/prepare-installer.ps1
 powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1
 ```
 
-第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.3-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
+第一条首次下载需要联网，后续使用已校验的本地下载包。第二条先构建并运行引擎、TSF 测试，通过后生成 `build/ChaoxiPinyin-0.6.6-preview-win-x64-Setup.exe`。若当前沙箱不允许管道或 TSF，需在普通 Windows 用户终端运行测试，不能把沙箱失败等同于输入法故障。`-SkipBuild` 仅供已经核实当前构建及测试的开发者重新打包文档使用。
 
 安装脚本是 `scripts/installer.iss`，可修改版本、默认目录和安装内容。安装器包含注册和反注册、目录选择、开始菜单入口以及系统卸载项，安装时没有下载步骤。安装器自带程序清单要求管理员权限。不会更改默认输入法或强制关闭浏览器；被占用 DLL 卸载时可能延迟至重启删除。旧脚本版升级使用原目录；EXE 版变更目录需先卸载。可继续运行 `scripts/package.ps1` 生成 ZIP 备用包。
 

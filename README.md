@@ -89,6 +89,53 @@
 
 先切换到其他输入法，再通过 Windows **“已安装的应用”** 或开始菜单 **“卸载潮汐拼音”** 卸载。卸载默认保留本地数据；如不需要，请先在设置中清除学习数据。系统提示需要重启时，请按提示操作。
 
+## 从源码构建 Windows 版
+
+### 环境要求
+
+- Windows 10/11 x64，使用普通用户的 Windows PowerShell 5.1 终端。
+- Git for Windows，用于拉取源码。
+- 已解压或安装的 7-Zip，需提供 `7z.exe` 的完整路径。
+- 将仓库放在 D 盘，例如 `D:\projects\input-method`。工具和下载缓存在仓库内的 `.tools`、`.downloads`，准备脚本要求项目位于 D 盘。
+- 建议预留至少 5 GB 可用空间，并能访问 GitHub 下载固定版本工具。首次准备需要联网。
+
+脚本自动准备 LLVM-MinGW 20261020 UCRT x64 和 librime 1.17.0，并核对 SHA-256。Windows 构建直接使用仓库内的词库文件和预编译 Rime，无需先准备 Python、Visual Studio、Android SDK 或 `vendor` 源码。重新生成词库的开发流程见 [构建说明](docs/BUILD.md)。
+
+### 拉取、准备和构建
+
+在 PowerShell 中执行，按本机实际位置修改 `7z.exe` 路径。
+
+```powershell
+git clone https://github.com/edwardadrian302-hue/input-method.git D:\projects\input-method
+cd D:\projects\input-method
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap.ps1 -SevenZip "C:\Program Files\7-Zip\7z.exe"
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build.ps1
+```
+
+`build.ps1` 编译程序并运行引擎、词库解析、隔离 TSF 和设置布局检查。运行文件输出到 `dist`，测试程序输出到 `build/tests`，模拟词库和学习记录输出到 `test-output`。测试使用独立数据目录和随机管道，请在普通 Windows 用户终端执行。工具脚本不修改系统 PATH。
+
+### 生成安装包
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-installer.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1 -SkipBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package.ps1
+```
+
+这里的 `-SkipBuild` 用于上一节已经完整构建并通过测试的同一份源码。修改源码后须重新运行 `build.ps1`，也可以省略 `-SkipBuild`，由打包脚本重新构建和测试。
+
+产物为 `build/ChaoxiPinyin-0.6.6-preview-win-x64-Setup.exe` 和 `build/ChaoxiPinyin-0.6.6-preview-win-x64.zip`。Inno Setup 6.7.4 会便携准备到 `.tools/inno-setup`，下载时验证摘要和官方签名，其使用条件见 [第三方说明](THIRD_PARTY.md)。
+
+以上命令只准备工具、构建、测试和打包。安装及系统输入法注册由使用者手动执行，需要管理员权限。
+
+### 首次构建验证记录
+
+2026-11-06，在现有 Windows x64 主机上从 GitHub 全新拉取源码，确认项目内没有 `.tools`、`.downloads`、`vendor`、`build` 或 `dist`，重新下载工具后完成 Windows 编译、433 项核心检查、7 项词库解析检查、隔离 TSF 与 100 次 IPC 检查、设置布局检查，以及 EXE 和 ZIP 打包。ZIP 中 20 个文件逐项与该次 `dist` 校验一致。
+
+首次检出还发现，Git 的 `core.autocrlf=true` 会改变 `ChineseSimplified.isl` 的换行，导致安装工具准备时摘要不匹配。已通过 `.gitattributes` 为此文件设置 `-text`，重新检出验证后打包通过。
+
+本次验证使用 Windows PowerShell 5.1.26100.9711、7-Zip 26.01 x64。验证范围为现有主机中的全新项目目录和空项目缓存，系统安装与 Windows 10 独立兼容性按 [验收清单](docs/ACCEPTANCE.md) 另行检查。
+
 ## 项目资料
 
 [第三方组件与许可](THIRD_PARTY.md)。构建、架构和兼容性验证记录保存在源码仓库的 `docs/` 目录中，不随用户安装包分发。当前版本为预览版，兼容性验证进展见源码仓库的 `docs/VERIFICATION.md`；32 位应用与 ARM64 暂不支持。

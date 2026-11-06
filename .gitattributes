@@ -1,0 +1,2 @@
+# This upstream file is verified byte-for-byte against installer.lock.json.
+scripts/ChineseSimplified.isl -text
